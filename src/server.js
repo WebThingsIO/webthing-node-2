@@ -19,7 +19,13 @@ class ThingServer {
 
     this.app.get('/properties/:name', async (request, response) => {
       const name = request.params.name;
-      const value = await this.thing.readProperty(name);
+      let value;
+      try {
+        value = await this.thing.readProperty(name);
+      } catch {
+        response.status(404).send();
+        return;
+      }
       response.status(200).json(value);
     });
   }

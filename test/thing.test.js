@@ -15,9 +15,14 @@ describe('Thing', () => {
   };
 
   describe('constructor', () => {
-    it('should store the partial Thing Description', () => {
+    it('should parse and populate mandatory members of the Thing', () => {
       const thing = new Thing(partialTD);
-      assert.deepStrictEqual(thing.partialTD, partialTD);
+      assert.equal(thing.context, 'https://www.w3.org/2022/wot/td/v1.1');
+      assert.equal(thing.title, partialTD.title);
+      assert.deepEqual(thing.securityDefinitions, {
+        nosec_sc: { scheme: 'nosec' },
+      });
+      assert.equal(thing.security, 'nosec_sc');
     });
   });
 
@@ -25,7 +30,12 @@ describe('Thing', () => {
     it('should return the Thing Description', () => {
       const thing = new Thing(partialTD);
       const td = thing.getThingDescription();
-      assert.deepStrictEqual(td, partialTD);
+      assert.deepEqual(td, {
+        '@context': 'https://www.w3.org/2022/wot/td/v1.1',
+        title: 'Test Thing',
+        securityDefinitions: { nosec_sc: { scheme: 'nosec' } },
+        security: 'nosec_sc',
+      });
     });
   });
 

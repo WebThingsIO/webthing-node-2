@@ -22,6 +22,7 @@ describe('ThingServer', () => {
     const thing = new Thing(partialTD);
     thing.setPropertyReadHandler('on', async () => true);
     server = new ThingServer(thing);
+    // Listen on a random available port to avoid port conflicts
     await new Promise((resolve) => {
       server.server = server.app.listen(0, () => {
         const port = server.server.address().port;
@@ -41,8 +42,11 @@ describe('ThingServer', () => {
       assert.strictEqual(response.status, 200);
       const td = await response.json();
       assert.strictEqual(td.title, 'Test Lamp');
-      assert.strictEqual(td.description, 'A test lamp');
-      assert.ok(td.properties);
+      assert.equal(td['@context'], 'https://www.w3.org/2022/wot/td/v1.1');
+      assert.deepEqual(td.securityDefinitions, {
+        nosec_sc: { scheme: 'nosec' },
+      });
+      assert.equal(td.security, 'nosec_sc');
     });
   });
 
@@ -52,6 +56,13 @@ describe('ThingServer', () => {
       assert.strictEqual(response.status, 200);
       const value = await response.json();
       assert.strictEqual(value, true);
+    });
+  });
+
+  describe('GET /properties/:invalidname', () => {
+    it('should return 404 for an invalid property name', async () => {
+      const response = await fetch(baseUrl + '/properties/foo');
+      assert.strictEqual(response.status, 404);
     });
   });
 });
