@@ -8,5 +8,5 @@
     "moduleResolution": "nodenext",
     "target": "es2022"
   },
-  "include": ["src/**/*.js", "examples/**/*.js"]
+  "include": ["src/**/*.js", "src/**/*.d.ts", "examples/**/*.js"]
 }
