@@ -2,12 +2,7 @@
 
 Node.js implementation of a W3C WoT web thing
 
-This is a work-in-progress pure Node.js replacement for the webthing-node
-library which conforms to W3C
-[WoT Thing Description 1.1](https://www.w3.org/TR/wot-thing-description/).
-It will implement the [HTTP Basic Profile](https://w3c.github.io/wot-profile/#http-basic-profile),
-[HTTP SSE Profile](https://w3c.github.io/wot-profile/#http-sse-profile) and the
-[Web Thing Protocol (WebSocket sub-protocol)](https://w3c.github.io/web-thing-protocol/).
+This is a work-in-progress pure Node.js replacement for the webthing-node library which will implement the W3C [WoT Thing Description](https://www.w3.org/TR/wot-thing-description/) and WoT Thing Protocol specifications.
 
 ## Example Web Thing
 
@@ -131,7 +126,7 @@ Run the linter with:
 
 `$ npm run lint`
 
-## Running Tests
+### Running Tests
 
 You can run tests with:
 
