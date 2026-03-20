@@ -4,7 +4,7 @@
   "description": "Node.js implementation of a W3C WoT Web Thing",
   "type": "module",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
