@@ -1,14 +1,32 @@
 import ValidationError from './validation-error.js';
+import PropertyAffordance from './property-affordance.js';
 
 /**
- * Thing.
+ * Thing
  *
- * Represents a W3C WoT Web Thing.
+ * Represents a Web Thing.
+ * 
+ * Implements a Thing from the W3C WoT Thing Description 1.1 specification.
+ * https://www.w3.org/TR/wot-thing-description/#thing
  */
 class Thing {
   DEFAULT_CONTEXT = 'https://www.w3.org/2022/wot/td/v1.1';
 
-  propertyReadHandlers = new Map();
+  /**
+   * @type {string | string[] | undefined}
+   */
+  '@type';
+
+  // TODO: Remove
+  /**
+   * @type {Map<string, function>}
+   */
+  //propertyReadHandlers = new Map();
+
+  /**
+   * @type {Map<string, PropertyAffordance>}
+   */
+  properties = new Map();
 
   /**
    * Construct Thing from partial Thing Description.
@@ -128,6 +146,46 @@ class Thing {
   }
 
   /**
+   * Parse the properties member of a Thing Description.
+   * 
+   * @param {Object<string, Object>} propertyDescriptions Map of property
+   *   descriptions provided in a partial TD, indexed by property name.
+   */
+  parsePropertiesMember(propertyDescriptions) {
+    // If the properties member is not set then continue
+    if(!propertyDescriptions) {
+      return;
+    }
+
+    // If the provided properties member is not an object then throw a validation error
+    if (typeof propertyDescriptions !== 'object') {
+      throw new ValidationError([
+        {
+          field: 'properties',
+          description: 'properties member is not an object',
+        },
+      ]);
+    }
+
+    // Generate a map of Property objects from property descriptions
+    for(const propertyName in propertyDescriptions) {
+      this.addProperty(propertyName, propertyDescriptions[propertyName])
+    }
+  }
+
+  /**
+   * Add a Property.
+   * 
+   * @param {string} propertyName The name of the property to add.
+   * @param {Record<string, any>} propertyDescription A description of a
+   *   PropertyAffordance from a Thing Description.
+   */
+  addProperty(propertyName, propertyDescription) {
+    let property = new PropertyAffordance(propertyName, propertyDescription);
+    this.properties.set(propertyName, property);
+  }
+
+  /**
    * Get Thing Description.
    *
    * @returns {Object} A complete Thing Description for the Thing.
@@ -149,9 +207,11 @@ class Thing {
    * @param {function} handler A function to handle property reads.
    */
   setPropertyReadHandler(name, handler) {
-    this.propertyReadHandlers.set(name, handler);
+    // TODO: Refactor to use Property object
+    //this.propertyReadHandlers.set(name, handler);
   }
 
+  // TODO: Remove
   /**
    * Read Property.
    *
@@ -159,14 +219,14 @@ class Thing {
    * @returns {any} The current value of the property, with a format conforming
    *   to its data schema in the Thing Description.
    */
-  readProperty(name) {
+  /*readProperty(name) {
     if (!this.propertyReadHandlers.has(name)) {
       console.error('No property read handler for the property ' + name);
       throw new Error();
     } else {
       return this.propertyReadHandlers.get(name)();
     }
-  }
+  }*/
 }
 
 export default Thing;
