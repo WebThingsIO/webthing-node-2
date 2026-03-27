@@ -1,6 +1,6 @@
 # webthing-node-2
 
-Node.js implementation of a W3C WoT web thing
+Node.js implementation of a [W3C WoT](https://www.w3.org/WoT/) Web Thing.
 
 This is a work-in-progress pure Node.js replacement for the webthing-node library which will implement the [W3C WoT Thing Description](https://www.w3.org/TR/wot-thing-description/), [W3C WoT Discovery](https://www.w3.org/TR/wot-discovery/) and ([proposed](https://lists.w3.org/Archives/Public/public-web-thing-protocol/2026Mar/0001.html)) W3C WoT Thing Protocol specifications.
 
