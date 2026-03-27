@@ -17,7 +17,7 @@ class ThingServer {
       response.json(this.thing.getThingDescription());
     });
 
-    this.app.get('/properties/:name', async (request, response) => {
+    /*this.app.get('/properties/:name', async (request, response) => {
       const name = request.params.name;
       let value;
       try {
@@ -27,7 +27,7 @@ class ThingServer {
         return;
       }
       response.status(200).json(value);
-    });
+    });*/
   }
 
   /**
