@@ -4,7 +4,7 @@ import ValidationError from './validation-error.js';
 
 /**
  * Interaction Affordance
- * 
+ *
  * Represents an InteractionAffordance from the W3C WoT Thing Description 1.1
  * specification
  * https://www.w3.org/TR/wot-thing-description/#interactionaffordance
@@ -46,31 +46,36 @@ class InteractionAffordance {
   uriVariables;
 
   /**
-   * 
-   * @param {string} name The name of the InteractionAffordance from its key in 
+   *
+   * @param {string} name The name of the InteractionAffordance from its key in
    *   a properties, actions or events Map.
-   * @param {Object<string, any>} description A description of an 
-   *   InteractionAffordance, i.e. a PropertyAffordance, ActionAffordance or 
-   *   EventAffordance. 
+   * @param {Object<string, any>} description A description of an
+   *   InteractionAffordance, i.e. a PropertyAffordance, ActionAffordance or
+   *   EventAffordance.
    */
   constructor(name, description) {
-    this.name = name;
     let validationError = new ValidationError([]);
 
-    // Parse title member
-    try {
-      this.parseTitleMember(description.title);
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        validationError.validationErrors.push(...error.validationErrors);
-      } else {
-        throw error;
-      }
+    if (
+      !name ||
+      !description ||
+      typeof name != 'string' ||
+      typeof description != 'object'
+    ) {
+      throw new ValidationError([
+        {
+          field: `(root)`,
+          description:
+            'Tried to instantiate an InteractionAffordance with an invalid name or description',
+        },
+      ]);
     }
+
+    this.name = name;
 
     // Parse @type member
     try {
-      this.parseSemanticTypeMember(description.title);
+      this.#parseSemanticTypeMember(description['@type']);
     } catch (error) {
       if (error instanceof ValidationError) {
         validationError.validationErrors.push(...error.validationErrors);
@@ -78,15 +83,43 @@ class InteractionAffordance {
         throw error;
       }
     }
+
+    // Parse title member
+    try {
+      this.#parseTitleMember(description.title);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        validationError.validationErrors.push(...error.validationErrors);
+      } else {
+        throw error;
+      }
+    }
+
+    // TODO: Parse titles member
+    // TODO: Parse forms member
+    // TOOD: Parse uriVariables member
+
+    // Parse description member
+    try {
+      this.#parseDescriptionMember(description.description);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        validationError.validationErrors.push(...error.validationErrors);
+      } else {
+        throw error;
+      }
+    }
+
+    // TODO: Parse descriptions member
   }
 
   /**
-   * Parse the semantic type member of the property description.
-   * 
+   * Parse the semantic type member.
+   *
    * @param {string|Array<string>|undefined} type The provided value of semantic type.
    */
-  parseSemanticTypeMember(type) {
-    if(!type) {
+  #parseSemanticTypeMember(type) {
+    if (!type) {
       return;
     }
 
@@ -101,14 +134,14 @@ class InteractionAffordance {
     }
 
     // If @type is a string then use that value
-    if(typeof type == 'string') {
+    if (typeof type == 'string') {
       this['@type'] = type;
       return;
     }
 
     // If @type is an array then validate its contents then set this['@type']
-    if(Array.isArray(type)) {
-      if(Array.length < 1) {
+    if (Array.isArray(type)) {
+      if (Array.length < 1) {
         return;
       }
       /**
@@ -127,25 +160,25 @@ class InteractionAffordance {
         } else {
           errors.push({
             field: `properties.${this.name}['@type']`,
-            description: '@type member is not string or Array of string'
+            description: '@type member is not string or Array of string',
           });
         }
       });
-      if(errors.length > 0) {
+      if (errors.length > 0) {
         throw new ValidationError(errors);
       } else {
         this['@type'] = types;
       }
     }
-
   }
 
   /**
-   * 
-   * @param {string} title 
+   * Parse title member.
+   *
+   * @param {string|undefined} title
    */
-  parseTitleMember(title) {
-    if(!title) {
+  #parseTitleMember(title) {
+    if (!title) {
       return;
     }
 
@@ -161,6 +194,27 @@ class InteractionAffordance {
     this.title = title;
   }
 
+  /**
+   * Parse description member.
+   *
+   * @param {string|undefined} description
+   */
+  #parseDescriptionMember(description) {
+    if (!description) {
+      return;
+    }
+
+    if (typeof description !== 'string') {
+      throw new ValidationError([
+        {
+          field: `properties.${this.name}.description`,
+          description: 'description member is not a string',
+        },
+      ]);
+    }
+
+    this.description = description;
+  }
 }
 
 export default InteractionAffordance;

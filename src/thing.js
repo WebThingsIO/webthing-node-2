@@ -5,7 +5,7 @@ import PropertyAffordance from './property-affordance.js';
  * Thing
  *
  * Represents a Web Thing.
- * 
+ *
  * Implements a Thing from the W3C WoT Thing Description 1.1 specification.
  * https://www.w3.org/TR/wot-thing-description/#thing
  */
@@ -13,20 +13,26 @@ class Thing {
   DEFAULT_CONTEXT = 'https://www.w3.org/2022/wot/td/v1.1';
 
   /**
-   * @type {string | string[] | undefined}
-   */
-  '@type';
-
-  // TODO: Remove
-  /**
-   * @type {Map<string, function>}
-   */
-  //propertyReadHandlers = new Map();
-
-  /**
    * @type {Map<string, PropertyAffordance>}
    */
   properties = new Map();
+
+  /**
+   * @type {Record<string, any>}
+   *
+   * TODO: Change this to Map<string,SecurityScheme>
+   */
+  securityDefinitions;
+
+  /**
+   * @type {string|Array<string>}
+   */
+  security;
+
+  /**
+   * @type {string}
+   */
+  base;
 
   /**
    * Construct Thing from partial Thing Description.
@@ -40,7 +46,7 @@ class Thing {
 
     // Parse @context member
     try {
-      this.parseContextMember(partialTD['@context']);
+      this.#parseContextMember(partialTD['@context']);
     } catch (error) {
       if (error instanceof ValidationError) {
         validationError.validationErrors.push(...error.validationErrors);
@@ -51,7 +57,18 @@ class Thing {
 
     // Parse title member
     try {
-      this.parseTitleMember(partialTD.title);
+      this.#parseTitleMember(partialTD.title);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        validationError.validationErrors.push(...error.validationErrors);
+      } else {
+        throw error;
+      }
+    }
+
+    // Parse properties member
+    try {
+      this.#parsePropertiesMember(partialTD.properties);
     } catch (error) {
       if (error instanceof ValidationError) {
         validationError.validationErrors.push(...error.validationErrors);
@@ -67,6 +84,12 @@ class Thing {
       },
     };
     this.security = 'nosec_sc';
+
+    // Initially set base to '/', but the ThingServer should reset this once
+    // it starts serving the Thing at a real URL
+    this.base = '/';
+
+    // TODO: Parse other members
   }
 
   /**
@@ -75,7 +98,7 @@ class Thing {
    * @param {any} context The @context, if any, provided in the partialTD.
    * @throws {ValidationError} A validation error.
    */
-  parseContextMember(context) {
+  #parseContextMember(context) {
     // If no @context provided then set it to the default
     if (context === undefined) {
       this.context = this.DEFAULT_CONTEXT;
@@ -122,7 +145,7 @@ class Thing {
    * @param {string} title The title provided in the partialTD.
    * @throws {ValidationError} A validation error.
    */
-  parseTitleMember(title) {
+  #parseTitleMember(title) {
     // Require the user to provide a title
     if (!title) {
       throw new ValidationError([
@@ -147,13 +170,13 @@ class Thing {
 
   /**
    * Parse the properties member of a Thing Description.
-   * 
+   *
    * @param {Object<string, Object>} propertyDescriptions Map of property
    *   descriptions provided in a partial TD, indexed by property name.
    */
-  parsePropertiesMember(propertyDescriptions) {
+  #parsePropertiesMember(propertyDescriptions) {
     // If the properties member is not set then continue
-    if(!propertyDescriptions) {
+    if (!propertyDescriptions) {
       return;
     }
 
@@ -168,14 +191,14 @@ class Thing {
     }
 
     // Generate a map of Property objects from property descriptions
-    for(const propertyName in propertyDescriptions) {
-      this.addProperty(propertyName, propertyDescriptions[propertyName])
+    for (const propertyName in propertyDescriptions) {
+      this.addProperty(propertyName, propertyDescriptions[propertyName]);
     }
   }
 
   /**
    * Add a Property.
-   * 
+   *
    * @param {string} propertyName The name of the property to add.
    * @param {Record<string, any>} propertyDescription A description of a
    *   PropertyAffordance from a Thing Description.
@@ -191,11 +214,23 @@ class Thing {
    * @returns {Object} A complete Thing Description for the Thing.
    */
   getThingDescription() {
+    /**
+     * @type {Record<string, any>}
+     */
+    let properties = {};
+    for (const propertyName of this.properties.keys()) {
+      const property = this.properties.get(propertyName);
+      if (property) {
+        properties[propertyName] = property.getDescription();
+      }
+    }
     const thingDescription = {
       '@context': this.context,
       title: this.title,
+      base: this.base,
       securityDefinitions: this.securityDefinitions,
       security: this.security,
+      properties: properties,
     };
     return thingDescription;
   }
@@ -207,11 +242,13 @@ class Thing {
    * @param {function} handler A function to handle property reads.
    */
   setPropertyReadHandler(name, handler) {
-    // TODO: Refactor to use Property object
-    //this.propertyReadHandlers.set(name, handler);
+    let property = this.properties.get(name);
+    if (!property) {
+      throw new Error(`No property called ${name} could be found`);
+    }
+    property.setReadHandler(handler);
   }
 
-  // TODO: Remove
   /**
    * Read Property.
    *
@@ -219,14 +256,14 @@ class Thing {
    * @returns {any} The current value of the property, with a format conforming
    *   to its data schema in the Thing Description.
    */
-  /*readProperty(name) {
-    if (!this.propertyReadHandlers.has(name)) {
-      console.error('No property read handler for the property ' + name);
-      throw new Error();
-    } else {
-      return this.propertyReadHandlers.get(name)();
+  readProperty(name) {
+    let property = this.properties.get(name);
+    if (!property) {
+      console.error(`No property called ${name} could be found`);
+      throw new Error('NotFoundError');
     }
-  }*/
+    return property.read();
+  }
 }
 
 export default Thing;

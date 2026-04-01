@@ -1,6 +1,6 @@
 /**
  * Data Schema
- * 
+ *
  * Represents a DataSchema from the W3C WoT Thing Description 1.1 specification
  * https://www.w3.org/TR/wot-thing-description/#dataschema
  */
@@ -78,7 +78,6 @@ class DataSchema {
   constructor() {
     // TODO: Populate defaults for readOnly and writeOnly
   }
-
 }
 
 export default DataSchema;
