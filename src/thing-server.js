@@ -10,6 +10,7 @@ class ThingServer {
    */
   constructor(thing) {
     this.thing = thing;
+    // TODO: Set base member of Thing to the server's host
     this.app = express();
     this.server = null;
 
@@ -22,8 +23,19 @@ class ThingServer {
       let value;
       try {
         value = await this.thing.readProperty(name);
-      } catch {
-        response.status(404).send();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'InternalError';
+        switch (errorMessage) {
+          case 'NotFoundError':
+            response.status(404).send();
+            break;
+          case 'InternalError':
+            response.status(500).send();
+            break;
+          default:
+            response.status(500).send();
+        }
         return;
       }
       response.status(200).json(value);
