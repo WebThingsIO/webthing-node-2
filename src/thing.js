@@ -30,7 +30,7 @@ class Thing {
   security;
 
   /**
-   * @type {string}
+   * @type {string|undefined}
    */
   base;
 
@@ -85,10 +85,7 @@ class Thing {
     };
     this.security = 'nosec_sc';
 
-    // Initially set base to '/', but the ThingServer should reset this once
-    // it starts serving the Thing at a real URL
-    this.base = '/';
-
+    // TODO: Parse base member
     // TODO: Parse other members
   }
 
@@ -211,9 +208,10 @@ class Thing {
   /**
    * Get Thing Description.
    *
+   * @param {string|undefined} host The host at which the Thing is being served.
    * @returns {Object} A complete Thing Description for the Thing.
    */
-  getThingDescription() {
+  getThingDescription(host) {
     /**
      * @type {Record<string, any>}
      */
@@ -227,7 +225,9 @@ class Thing {
     const thingDescription = {
       '@context': this.context,
       title: this.title,
-      base: this.base,
+      // If a base argument is provided then use that, otherwise use the base provided in the 
+      // partial Thing Description.
+      base: host ? `http://${host}/` : this.base,
       securityDefinitions: this.securityDefinitions,
       security: this.security,
       properties: properties,

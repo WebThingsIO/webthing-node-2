@@ -225,7 +225,7 @@ class PropertyAffordance extends InteractionAffordance {
   /**
    * @returns {Record<string, any>}
    *
-   * // TODO: Rename to getPropertyDescription?
+   * // TODO: Rename to getPropertyDescription to avoid confusion with description member?
    */
   getDescription() {
     let propertyDescription = {};
