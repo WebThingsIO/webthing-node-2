@@ -1,7 +1,10 @@
 import InteractionAffordance from './interaction-affordance.js';
-import DataSchema from './data-schema.js';
-import Form from './form.js';
 import ValidationError from './validation-error.js';
+
+/**
+ * @typedef {import('./interaction-affordance.js').DataSchema} DataSchema
+ * @typedef {import('./interaction-affordance.js').Form} Form
+ */
 
 /**
  * Property Affordance
@@ -180,23 +183,18 @@ class PropertyAffordance extends InteractionAffordance {
    * @param {Array<Record<string, any>>} forms
    */
   #parseFormsMember(forms) {
-    // TODO: Parse existing forms
-    let description = {};
-    description.href = `properties/${this.name}`;
+    /** @type Form */
+    let form = {
+      'href': `properties/${this.name}`
+    };
     if (this.readOnly) {
-      description.op = ['readproperty'];
+      form.op = ['readproperty'];
     } else if (this.writeOnly) {
-      description.op = ['writeproperty'];
+      form.op = ['writeproperty'];
     } else {
-      description.op = ['readproperty', 'writeproperty'];
+      form.op = ['readproperty', 'writeproperty'];
     }
-    let form;
-    try {
-      form = new Form(description);
-      this.forms.push(form);
-    } catch (error) {
-      // TODO: Pass the error up the chain
-    }
+    this.forms.push(form);
     // TODO: Populate other members of Form
   }
   /**
@@ -232,10 +230,7 @@ class PropertyAffordance extends InteractionAffordance {
     propertyDescription['@type'] = this['@type'];
     propertyDescription.title = this.title;
     propertyDescription.description = this.description;
-    propertyDescription.forms = new Array();
-    this.forms.forEach((form) => {
-      propertyDescription.forms.push(form.getDescription());
-    });
+    propertyDescription.forms = this.forms;
     // TODO: Generate fill property description
     return propertyDescription;
   }

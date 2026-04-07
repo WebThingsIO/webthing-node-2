@@ -1,6 +1,58 @@
-import DataSchema from './data-schema.js';
-import Form from './form.js';
 import ValidationError from './validation-error.js';
+
+/** 
+ * Expected Response
+ * 
+ * @typedef {Object} ExpectedResponse
+ * @property {string} contentType
+ */
+
+/** 
+ * Additional Expected Response
+ * 
+ * @typedef {Object} AdditionalExpectedResponse
+ * @property {boolean} [success]
+ * @property {string} [contentType]
+ * @property {string} [schema]
+ */
+
+/** 
+ * Data Schema
+ * 
+ * @typedef {Object} DataSchema
+ * @ts-ignore
+ * @property {string|Array<string>} ['@type']
+ * @property {string} [title]
+ * @property {Record<string,string>} [titles]
+ * @property {string} [description]
+ * @property {Record<string,string>} [descriptions]
+ * @property {any} [const]
+ * @property {any} [default]
+ * @property {string} [unit]
+ * @property {Array<DataSchema>} [oneOf]
+ * @property {Array<any>} [enum]
+ * @property {boolean} [readOnly]
+ * @property {boolean} [writeOnly]
+ * @property {string} [format]
+ * @property {'object'|'array'|'string'|'number'|'integer'|'boolean'|'null'} [type]
+ */
+
+/** 
+ * Form
+ * 
+ * @typedef {Object} Form
+ * @property {string} href
+ * @property {string} [contentType]
+ * @property {string} [contentCoding]
+ * @property {string|Array<string>} [security]
+ * @property {string|Array<string>} [scopes]
+ * @property {ExpectedResponse} [response]
+ * @property {Array<AdditionalExpectedResponse>} [additionalResponses]
+ * @property {string} [subprotocol]
+ * @property {string|Array<string>} [op]
+ */
+
+// TODO: Constrain set of possible values for op
 
 /**
  * Interaction Affordance

@@ -30,7 +30,7 @@ class Thing {
   security;
 
   /**
-   * @type {string|undefined}
+   * @type {URL|undefined}
    */
   base;
 
@@ -43,6 +43,17 @@ class Thing {
   constructor(partialTD) {
     // Create an empty validation error to collect errors during parsing.
     let validationError = new ValidationError([]);
+
+    // Parse base member
+    try {
+      this.#parseBaseMember(partialTD['base']);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        validationError.validationErrors.push(...error.validationErrors);
+      } else {
+        throw error;
+      }
+    }
 
     // Parse @context member
     try {
@@ -85,8 +96,40 @@ class Thing {
     };
     this.security = 'nosec_sc';
 
-    // TODO: Parse base member
     // TODO: Parse other members
+  }
+
+  /**
+   * Parse the base member of a Thing Description.
+   * 
+   * Note: If being served with ThingServer, the base can automatically be 
+   * derived from the Host header of an HTTP request for the Thing Description
+   * so does not need to be provided in the partialTD when instantiating the 
+   * Thing.
+   *
+   * @param {string} base The base URL, if any, provided in the partialTD.
+   * @throws {ValidationError} A validation error.
+   */
+  #parseBaseMember(base) {
+    // If no base member is provided then assume it will be automatically
+    // generated and continue.
+    if (base === undefined) {
+      return;
+    }
+
+    // Test whether the provided base member is a valid URL
+    try {
+      const baseURL = new URL(base);
+      this.base = baseURL;
+    } catch(error) {
+      console.error(`Error instantiating URL from provided base member: ${error}`);
+      throw new ValidationError([
+        {
+          field: 'base',
+          description: 'base is not a valid URL',
+        },
+      ]);
+    }
   }
 
   /**
