@@ -16,6 +16,19 @@ describe('ThingServer', () => {
     actions: {
       blink: {
         title: 'Blink',
+        synchronous: true,
+      },
+      fade: {
+        title: 'Fade',
+        synchronous: false,
+      },
+      cancel: {
+        title: 'Cancel',
+        synchronous: false,
+      },
+      fail: {
+        title: 'Fail',
+        synchronous: false,
       },
     },
   };
@@ -23,6 +36,7 @@ describe('ThingServer', () => {
   let server;
   let baseUrl;
   let currentValue = true;
+  let actionSignal;
 
   before(async () => {
     const thing = new Thing(partialTD);
@@ -30,7 +44,19 @@ describe('ThingServer', () => {
     thing.setPropertyWriteHandler('on', async (value) => {
       currentValue = value;
     });
-    thing.setActionHandler('blink', async (input) => input);
+    thing.setActionInvokeHandler('blink', async (input) => input);
+    thing.setActionInvokeHandler('fade', async (input) => input);
+    thing.setActionInvokeHandler('fail', async () => {
+      throw new Error('Action failure');
+    });
+    thing.setActionInvokeHandler(
+      'cancel',
+      async (_input, signal) =>
+        new Promise((resolve) => {
+          actionSignal = signal;
+          signal.addEventListener('abort', resolve, { once: true });
+        }),
+    );
     server = new ThingServer(thing);
     // Listen on a random available port to avoid port conflicts
     await new Promise((resolve) => {
@@ -132,6 +158,88 @@ describe('ThingServer', () => {
       });
 
       assert.strictEqual(response.status, 404);
+    });
+  });
+
+  describe('Asynchronous actions', () => {
+    it('should return an ActionStatus and allow querying its result', async () => {
+      const input = { level: 50 };
+      const response = await fetch(baseUrl + '/actions/fade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input),
+      });
+
+      assert.equal(response.status, 201);
+      const status = await response.json();
+      assert.equal(status.status, 'pending');
+      assert.match(status.href, /^\/actions\/fade\/[0-9a-f-]+$/);
+      assert.equal(response.headers.get('location'), status.href);
+      assert.equal(typeof status.timeRequested, 'string');
+
+      const queryResponse = await fetch(baseUrl + status.href);
+      assert.equal(queryResponse.status, 200);
+      const queriedStatus = await queryResponse.json();
+      assert.equal(queriedStatus.status, 'completed');
+      assert.deepEqual(queriedStatus.output, input);
+      assert.equal(typeof queriedStatus.timeEnded, 'string');
+    });
+
+    it('should cancel an action and remove its status resource', async () => {
+      const response = await fetch(baseUrl + '/actions/cancel', {
+        method: 'POST',
+      });
+      assert.equal(response.status, 201);
+      const status = await response.json();
+
+      const cancelResponse = await fetch(baseUrl + status.href, {
+        method: 'DELETE',
+      });
+      assert.equal(cancelResponse.status, 204);
+      assert.equal(actionSignal.aborted, true);
+
+      const queryResponse = await fetch(baseUrl + status.href);
+      assert.equal(queryResponse.status, 404);
+    });
+
+    it('should return 404 for an unknown action status resource', async () => {
+      const response = await fetch(
+        baseUrl + '/actions/fade/00000000-0000-0000-0000-000000000000',
+      );
+      assert.equal(response.status, 404);
+    });
+
+    it('should return 404 when cancelling an unknown action request', async () => {
+      const response = await fetch(
+        baseUrl + '/actions/fade/00000000-0000-0000-0000-000000000000',
+        { method: 'DELETE' },
+      );
+      assert.equal(response.status, 404);
+    });
+
+    it('should expose asynchronous handler failures in the status resource', async () => {
+      const response = await fetch(baseUrl + '/actions/fail', {
+        method: 'POST',
+      });
+      assert.equal(response.status, 201);
+      const status = await response.json();
+
+      const queryResponse = await fetch(baseUrl + status.href);
+      assert.equal(queryResponse.status, 200);
+      const failedStatus = await queryResponse.json();
+      assert.equal(failedStatus.status, 'failed');
+      assert.deepEqual(failedStatus.error, {
+        title: 'Action failed',
+        detail: 'Action failure',
+      });
+      assert.equal(typeof failedStatus.timeEnded, 'string');
+
+      const cancelResponse = await fetch(baseUrl + status.href, {
+        method: 'DELETE',
+      });
+      assert.equal(cancelResponse.status, 409);
     });
   });
 });

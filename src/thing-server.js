@@ -111,8 +111,6 @@ class ThingServer {
        *
        * @param {Request} request
        * @param {Response} response
-       *
-       * Note: All actions are currently treated as synchronous.
        */
       async (request, response) => {
         // Make sure name is a string since param can also be array
@@ -120,9 +118,106 @@ class ThingServer {
           ? request.params.name[0]
           : request.params.name;
         const input = request.body;
-        let output;
+        const action = this.thing.actions.get(name);
+
+        if (action?.synchronous === true) {
+          // Synchronous action
+          let output;
+          try {
+            output = await this.thing.invokeAction(name, input);
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : 'InternalError';
+            switch (errorMessage) {
+              case 'NotFoundError':
+                response.status(404).send();
+                break;
+              case 'BadRequest':
+                response.status(400).send();
+                break;
+              case 'InternalError':
+                response.status(500).send();
+                break;
+              default:
+                response.status(500).send();
+            }
+            return;
+          }
+          if (output != undefined) {
+            response.status(200).send(output);
+          } else {
+            response.status(204).send();
+          }
+        } else {
+          // Asynchronous action
+          let actionStatus;
+          try {
+            actionStatus = this.thing.invokeActionAsync(name, input);
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : 'InternalError';
+            switch (errorMessage) {
+              case 'NotFoundError':
+                response.status(404).send();
+                break;
+              case 'BadRequest':
+                response.status(400).send();
+                break;
+              case 'InternalError':
+                response.status(500).send();
+                break;
+              default:
+                response.status(500).send();
+            }
+            return;
+          }
+          response.location(actionStatus.href).status(201).json(actionStatus);
+          return;
+        }
+      },
+    );
+
+    this.app.get(
+      '/actions/:name/:actionID',
+      /**
+       * Query Action Status
+       *
+       * @param {Request} request
+       * @param {Response} response
+       */
+      (request, response) => {
+        const name = Array.isArray(request.params.name)
+          ? request.params.name[0]
+          : request.params.name;
+        const actionID = Array.isArray(request.params.actionID)
+          ? request.params.actionID[0]
+          : request.params.actionID;
+        const actionStatus = this.thing.queryAction(name, actionID);
+        if (!actionStatus) {
+          response.status(404).send();
+          return;
+        }
+        response.status(200).json(actionStatus);
+      },
+    );
+
+    this.app.delete(
+      '/actions/:name/:actionID',
+      /**
+       * Cancel Action
+       *
+       * @param {Request} request
+       * @param {Response} response
+       */
+      (request, response) => {
+        const name = Array.isArray(request.params.name)
+          ? request.params.name[0]
+          : request.params.name;
+        const actionID = Array.isArray(request.params.actionID)
+          ? request.params.actionID[0]
+          : request.params.actionID;
         try {
-          output = await this.thing.invokeAction(name, input);
+          this.thing.cancelAction(name, actionID);
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'InternalError';
@@ -130,22 +225,15 @@ class ThingServer {
             case 'NotFoundError':
               response.status(404).send();
               break;
-            case 'BadRequest':
-              response.status(400).send();
-              break;
-            case 'InternalError':
-              response.status(500).send();
+            case 'ConflictError':
+              response.status(409).send();
               break;
             default:
               response.status(500).send();
           }
           return;
         }
-        if (output != undefined) {
-          response.status(200).send(output);
-        } else {
-          response.status(204).send();
-        }
+        response.status(204).send();
       },
     );
   }

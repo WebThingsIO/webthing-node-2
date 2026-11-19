@@ -390,9 +390,9 @@ class Thing {
    * Set Action Handler.
    *
    * @param {string} name The name of the action to handle.
-   * @param {(value: any) => Promise<any>} handler An async function to handle action invocations.
+   * @param {(value: any, signal?: AbortSignal) => Promise<any>} handler An async function to handle action invocations.
    */
-  setActionHandler(name, handler) {
+  setActionInvokeHandler(name, handler) {
     let action = this.actions.get(name);
     if (!action) {
       throw new Error(`No action called ${name} could be found`);
@@ -441,7 +441,6 @@ class Thing {
    * @returns {Promise<any>} A Promise resolving to the output of the action,
    *   conforming to the output data schema.
    *
-   * Note: All actions are currently treated as synchronous.
    */
   async invokeAction(name, input) {
     let action = this.actions.get(name);
@@ -450,6 +449,49 @@ class Thing {
       throw new Error('NotFoundError');
     }
     return action.invoke(input);
+  }
+
+  /**
+   * Invoke an asynchronous action.
+   *
+   * @param {string} name The name of the action to invoke.
+   * @param {any} input The action input.
+   * @returns {ActionStatus & {href: string}} The initial status of the action request.
+   */
+  invokeActionAsync(name, input) {
+    let action = this.actions.get(name);
+    if (!action) {
+      console.error(`No action called ${name} could be found`);
+      throw new Error('NotFoundError');
+    }
+    return action.invokeAsync(input);
+  }
+
+  /**
+   * Get the status of an action request.
+   *
+   * @param {string} name The name of the action.
+   * @param {string} actionID The ID of the action request.
+   * @returns {ActionStatus|undefined} The current status, if it exists.
+   */
+  queryAction(name, actionID) {
+    const action = this.actions.get(name);
+    return action?.queryAction(actionID);
+  }
+
+  /**
+   * Cancel an action request.
+   *
+   * @param {string} name The name of the action.
+   * @param {string} actionID The ID of the action request.
+   * @throws {Error} Throws NotFoundError if the action or request does not exist.
+   */
+  cancelAction(name, actionID) {
+    const action = this.actions.get(name);
+    if (!action) {
+      throw new Error('NotFoundError');
+    }
+    action.cancelAction(actionID);
   }
 }
 

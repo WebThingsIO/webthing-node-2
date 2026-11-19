@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import Thing from '../src/thing.js';
 import ThingServer from '../src/thing-server.js';
 
@@ -81,7 +82,7 @@ thing.setPropertyWriteHandler('level', async function (value) {
   return;
 });
 
-thing.setActionHandler('fade', async function (input) {
+thing.setActionInvokeHandler('fade', async function (input, signal) {
   if (
     typeof input.level !== 'number' ||
     !Number.isFinite(input.level) ||
@@ -106,9 +107,7 @@ thing.setActionHandler('fade', async function (input) {
 
   let elapsed = 0;
   while (elapsed < duration) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.min(100, duration - elapsed)),
-    );
+    await delay(Math.min(100, duration - elapsed), undefined, { signal });
     elapsed = Math.min(performance.now() - startTime, duration);
     currentLevelValue =
       startLevel + (targetLevel - startLevel) * (elapsed / duration);

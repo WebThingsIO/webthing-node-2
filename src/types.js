@@ -194,10 +194,10 @@
  * Action Status
  *
  * @typedef {{
- *   actionID: string,
- *   state: 'pending'|'running'|'completed'|'failed',
+ *   status: 'pending'|'running'|'completed'|'failed',
+ *   href?: string,
  *   output?: any,
- *   error: ProblemDetails
+ *   error?: ProblemDetails,
  *   timeRequested?: string,
  *   timeEnded?: string
  * }} ActionStatus
