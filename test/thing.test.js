@@ -125,11 +125,11 @@ describe('Thing', () => {
     });
   });
 
-  describe('setActionHandler', () => {
+  describe('setActionInvokeHandler', () => {
     it('should throw when the action does not exist', () => {
       const thing = new Thing(partialTD);
       assert.throws(
-        () => thing.setActionHandler('missing', async () => {}),
+        () => thing.setActionInvokeHandler('missing', async () => {}),
         /No action called missing could be found/,
       );
     });
@@ -138,7 +138,7 @@ describe('Thing', () => {
   describe('invokeAction', () => {
     it('should return the result from the action handler', async () => {
       const thing = new Thing(partialTD);
-      thing.setActionHandler('blink', async (input) => input.count);
+      thing.setActionInvokeHandler('blink', async (input) => input.count);
 
       const result = await thing.invokeAction('blink', { count: 3 });
       assert.equal(result, 3);

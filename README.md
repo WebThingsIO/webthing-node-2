@@ -83,6 +83,8 @@ Instantiate a Web Thing from the partial Thing Description:
 const thing = new Thing(partialTD);
 ```
 
+### Properties
+
 Set property handlers:
 
 ```javascript
@@ -94,6 +96,22 @@ thing.setPropertyReadHandler('level', async function () {
   return 50;
 });
 ```
+
+### Actions
+
+Set action handlers:
+
+```javascript
+thing.setActionInvokeHandler('fade', async (input, signal) => {
+  // Check signal.aborted or listen for its "abort" event during long-running work.
+});
+```
+
+For synchronous actions set `synchronous` to `true` in the Thing Description. The invoke handler should accept the action input as an argument and return a promise which resolves with the action output.
+
+For asynchronous actions set `synchronous` to `false` in the Thing Description. The invoke handler should accept the action input as its first argument, and an optional `AbortSignal` as a second argument so the action can be stopped if the request is cancelled.
+
+### Thing Server
 
 Expose to the Thing to the Web of Things by starting its web server, providing
 a port number as an argument:

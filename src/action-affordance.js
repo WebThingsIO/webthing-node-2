@@ -1,9 +1,12 @@
 import InteractionAffordance from './interaction-affordance.js';
 import ValidationError from './validation-error.js';
+import { randomUUID } from 'node:crypto';
 
 /** @import {DataSchema, PartialActionDescription, ActionDescription, Form,
  *    ActionStatus} from "./types.js"
  */
+
+/** @typedef {{status: ActionStatus, controller: AbortController}} ActionRequest */
 
 /**
  * Action Affordance
@@ -36,6 +39,16 @@ class ActionAffordance extends InteractionAffordance {
    * @type {boolean|undefined}
    */
   synchronous;
+
+  /**
+   * @type {((value: any, signal?: AbortSignal) => Promise<any>)|undefined}
+   */
+  invokeHandler;
+
+  /**
+   * @type {Map<string, ActionRequest>}
+   */
+  #actionRequests = new Map();
 
   /**
    * Create a new Action.
@@ -198,7 +211,7 @@ class ActionAffordance extends InteractionAffordance {
   /**
    * Set invoke handler function.
    *
-   * @param {(value: any) => Promise<void>} handler An asynchronous function to action invocations.
+   * @param {(value: any, signal?: AbortSignal) => Promise<any>} handler An asynchronous function to handle action invocations.
    */
   setInvokeHandler(handler) {
     this.invokeHandler = handler;
@@ -212,7 +225,6 @@ class ActionAffordance extends InteractionAffordance {
    * @returns {Promise<any>} A Promise which resolves with the output of the
    *   action (if any), conforming to the output data schema.
    *
-   * Note: All actions are currently treated as synchronous.
    */
   async invoke(input) {
     // TODO: Validate input against data schema
@@ -221,6 +233,96 @@ class ActionAffordance extends InteractionAffordance {
       throw new Error('InternalError');
     }
     return this.invokeHandler(input);
+  }
+
+  /**
+   * Start an asynchronous invocation and return its initial status.
+   *
+   * @param {any} input The action input.
+   * @returns {ActionStatus & {href: string}} The initial status of the action request.
+   */
+  invokeAsync(input) {
+    if (!this.invokeHandler) {
+      console.error(`No invoke handler set for action ${this.name}`);
+      throw new Error('InternalError');
+    }
+
+    const actionID = randomUUID();
+    const status = /** @type {ActionStatus & {href: string}} */ ({
+      status: 'pending',
+      href: `/actions/${encodeURIComponent(this.name)}/${actionID}`,
+      timeRequested: new Date().toISOString(),
+    });
+    const request = {
+      status,
+      controller: new AbortController(),
+    };
+    this.#actionRequests.set(actionID, request);
+
+    void Promise.resolve().then(async () => {
+      if (this.#actionRequests.get(actionID) !== request) {
+        return;
+      }
+      request.status.status = 'running';
+      try {
+        const output = await this.invokeHandler?.(
+          input,
+          request.controller.signal,
+        );
+        if (this.#actionRequests.get(actionID) !== request) {
+          return;
+        }
+        request.status.status = 'completed';
+        if (output !== undefined) {
+          request.status.output = output;
+        }
+      } catch (error) {
+        if (this.#actionRequests.get(actionID) !== request) {
+          return;
+        }
+        request.status.status = 'failed';
+        request.status.error = {
+          title: 'Action failed',
+          ...(error instanceof Error ? { detail: error.message } : {}),
+        };
+      }
+      request.status.timeEnded = new Date().toISOString();
+    });
+
+    return { ...status };
+  }
+
+  /**
+   * Get the current status of an action request.
+   *
+   * @param {string} actionID The ID of the action request.
+   * @returns {ActionStatus|undefined} The status, if the request exists.
+   */
+  queryAction(actionID) {
+    const request = this.#actionRequests.get(actionID);
+    return request ? { ...request.status } : undefined;
+  }
+
+  /**
+   * Cancel an ongoing action request.
+   *
+   * @param {string} actionID The ID of the action request.
+   * @throws {Error} Throws NotFoundError if the request does not exist,
+   *   or ConflictError if it has already completed or failed.
+   */
+  cancelAction(actionID) {
+    const request = this.#actionRequests.get(actionID);
+    if (!request) {
+      throw new Error('NotFoundError');
+    }
+    if (
+      request.status.status === 'completed' ||
+      request.status.status === 'failed'
+    ) {
+      throw new Error('ConflictError');
+    }
+    request.controller.abort();
+    this.#actionRequests.delete(actionID);
   }
 
   /**
