@@ -70,7 +70,10 @@ describe('Thing', () => {
             },
           },
         },
-        forms: [{ href: 'actions', op: 'queryallactions' }],
+        forms: [
+          { href: 'properties', op: ['readallproperties'] },
+          { href: 'actions', op: 'queryallactions' },
+        ],
       });
     });
   });
@@ -96,6 +99,28 @@ describe('Thing', () => {
     it('should reject when no handler is registered', async () => {
       const thing = new Thing(partialTD);
       await assert.rejects(() => thing.readProperty('on'), /InternalError/);
+    });
+  });
+
+  describe('readAllProperties', () => {
+    it('should return values for readable properties only', async () => {
+      const thing = new Thing({
+        title: 'Test Thing',
+        properties: {
+          on: { type: 'boolean' },
+          secret: { type: 'string', writeOnly: true },
+        },
+      });
+      thing.setPropertyReadHandler('on', async () => true);
+      thing.setPropertyReadHandler('secret', async () => 'hidden');
+
+      assert.deepEqual(await thing.readAllProperties(), { on: true });
+    });
+
+    it('should reject when a readable property cannot be read', async () => {
+      const thing = new Thing(partialTD);
+
+      await assert.rejects(() => thing.readAllProperties(), /InternalError/);
     });
   });
 

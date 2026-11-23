@@ -350,11 +350,18 @@ class Thing {
     // If properties are defined then add a properties member
     if (Object.keys(properties).length > 0) {
       thingDescription.properties = properties;
+      thingDescription.forms = [
+        { href: 'properties', op: ['readallproperties'] },
+      ];
     }
     // If actions are defined then add an actions member
     if (Object.keys(actions).length > 0) {
       thingDescription.actions = actions;
-      thingDescription.forms = [{ href: 'actions', op: 'queryallactions' }];
+      thingDescription.forms ??= [];
+      thingDescription.forms.push({
+        href: 'actions',
+        op: 'queryallactions',
+      });
     }
     return thingDescription;
   }
@@ -418,6 +425,24 @@ class Thing {
   }
 
   /**
+   * Read All Properties.
+   *
+   * @returns {Promise<Record<string, any>>} The current values keyed by property name.
+   */
+  async readAllProperties() {
+    const readableProperties = [...this.properties.entries()].filter(
+      ([, property]) => property.writeOnly !== true,
+    );
+    const values = await Promise.all(
+      readableProperties.map(async ([name]) => [
+        name,
+        await this.readProperty(name),
+      ]),
+    );
+    return Object.fromEntries(values);
+  }
+
+  /**
    * Write Property.
    *
    * @param {string} name The name of the property to write.
@@ -478,7 +503,7 @@ class Thing {
    */
   queryAction(name, actionID) {
     const action = this.actions.get(name);
-    const status = action?.queryAction(actionID);
+    const status = action?.query(actionID);
     if (!status) {
       throw new Error('NotFoundError');
     }
@@ -494,7 +519,7 @@ class Thing {
     /** @type {Record<string, Array<ActionStatus>>} */
     const statuses = {};
     for (const [name, action] of this.actions) {
-      statuses[name] = action.queryAllActions();
+      statuses[name] = action.queryAll();
     }
     return statuses;
   }
