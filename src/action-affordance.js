@@ -298,7 +298,7 @@ class ActionAffordance extends InteractionAffordance {
    * @param {string} actionID The ID of the action request.
    * @returns {ActionStatus|undefined} The status, if the request exists.
    */
-  queryAction(actionID) {
+  query(actionID) {
     const request = this.#actionRequests.get(actionID);
     return request ? { ...request.status } : undefined;
   }
@@ -308,7 +308,7 @@ class ActionAffordance extends InteractionAffordance {
    *
    * @returns {Array<ActionStatus>} The current statuses of the action requests.
    */
-  queryAllActions() {
+  queryAll() {
     return [...this.#actionRequests.values()]
       .reverse()
       .map(({ status }) => ({ ...status }))

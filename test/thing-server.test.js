@@ -12,6 +12,10 @@ describe('ThingServer', () => {
         type: 'boolean',
         title: 'On/Off',
       },
+      token: {
+        type: 'string',
+        writeOnly: true,
+      },
     },
     actions: {
       blink: {
@@ -41,6 +45,7 @@ describe('ThingServer', () => {
   before(async () => {
     const thing = new Thing(partialTD);
     thing.setPropertyReadHandler('on', async () => currentValue);
+    thing.setPropertyReadHandler('token', async () => 'secret');
     thing.setPropertyWriteHandler('on', async (value) => {
       currentValue = value;
     });
@@ -92,6 +97,50 @@ describe('ThingServer', () => {
       assert.strictEqual(response.status, 200);
       const value = await response.json();
       assert.strictEqual(value, true);
+    });
+  });
+
+  describe('GET /properties', () => {
+    it('should return all readable property values', async () => {
+      const response = await fetch(baseUrl + '/properties');
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { on: true });
+    });
+
+    it('should return 500 if a readable property cannot be read', async () => {
+      const failingThing = new Thing({
+        title: 'Failing Thing',
+        properties: { unavailable: { type: 'string' } },
+      });
+      const failingServer = new ThingServer(failingThing);
+      await new Promise((resolve) => {
+        failingServer.server = failingServer.app.listen(0, resolve);
+      });
+
+      try {
+        const port = failingServer.server.address().port;
+        const response = await fetch(`http://localhost:${port}/properties`);
+        assert.equal(response.status, 500);
+      } finally {
+        failingServer.stop();
+      }
+    });
+
+    it('should return 404 when the Thing has no properties', async () => {
+      const emptyServer = new ThingServer(
+        new Thing({ title: 'No Properties' }),
+      );
+      await new Promise((resolve) => {
+        emptyServer.server = emptyServer.app.listen(0, resolve);
+      });
+
+      try {
+        const port = emptyServer.server.address().port;
+        const response = await fetch(`http://localhost:${port}/properties`);
+        assert.equal(response.status, 404);
+      } finally {
+        emptyServer.stop();
+      }
     });
   });
 

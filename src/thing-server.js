@@ -32,6 +32,28 @@ class ThingServer {
     );
 
     this.app.get(
+      '/properties',
+      /**
+       * Read All Properties
+       *
+       * @param {Request} _request
+       * @param {Response} response
+       */
+      async (_request, response) => {
+        if (this.thing.properties.size === 0) {
+          response.status(404).send();
+          return;
+        }
+        try {
+          const values = await this.thing.readAllProperties();
+          response.status(200).json(values);
+        } catch {
+          response.status(500).send();
+        }
+      },
+    );
+
+    this.app.get(
       '/properties/:name',
       /**
        * Read Property
