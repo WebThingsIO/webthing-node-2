@@ -70,6 +70,7 @@ describe('Thing', () => {
             },
           },
         },
+        forms: [{ href: 'actions', op: 'queryallactions' }],
       });
     });
   });
@@ -149,6 +150,131 @@ describe('Thing', () => {
 
       await assert.rejects(
         () => thing.invokeAction('missing', {}),
+        /NotFoundError/,
+      );
+    });
+  });
+
+  describe('invokeActionAsync', () => {
+    it('should return the initial action status', () => {
+      const thing = new Thing(partialTD);
+      thing.setActionInvokeHandler('blink', async (input) => input.count);
+
+      const input = { count: 3 };
+      const status = thing.invokeActionAsync('blink', input);
+
+      assert.equal(status.status, 'pending');
+      assert.match(status.href, /^\/actions\/blink\/[0-9a-f-]+$/);
+      assert.equal(typeof status.timeRequested, 'string');
+    });
+
+    it('should throw when the action does not exist', () => {
+      const thing = new Thing(partialTD);
+
+      assert.throws(
+        () => thing.invokeActionAsync('missing', {}),
+        /NotFoundError/,
+      );
+    });
+  });
+
+  describe('queryAction', () => {
+    it('should throw when the action does not exist', () => {
+      const thing = new Thing(partialTD);
+
+      assert.throws(
+        () => thing.queryAction('missing', 'request-id'),
+        /NotFoundError/,
+      );
+    });
+
+    it('should throw when the action request does not exist', () => {
+      const thing = new Thing(partialTD);
+
+      assert.throws(
+        () => thing.queryAction('blink', 'missing-request'),
+        /NotFoundError/,
+      );
+    });
+  });
+
+  describe('queryAllActions', () => {
+    it('should return request statuses grouped by action, newest first', () => {
+      const thing = new Thing({
+        ...partialTD,
+        actions: {
+          ...partialTD.actions,
+          fade: {},
+          unused: {},
+        },
+      });
+      thing.setActionInvokeHandler('blink', async (input) => input);
+      thing.setActionInvokeHandler('fade', async (input) => input);
+
+      const blinkStatus = thing.invokeActionAsync('blink', { count: 1 });
+      const firstFadeStatus = thing.invokeActionAsync('fade', { count: 2 });
+      const secondFadeStatus = thing.invokeActionAsync('fade', { count: 3 });
+
+      const statuses = thing.queryAllActions();
+      assert.deepEqual(
+        statuses.blink.map(({ href }) => href),
+        [blinkStatus.href],
+      );
+      assert.deepEqual(
+        statuses.fade.map(({ href }) => href),
+        [secondFadeStatus.href, firstFadeStatus.href],
+      );
+      assert.deepEqual(statuses.unused, []);
+      assert.ok(
+        Date.parse(statuses.fade[0].timeRequested) >=
+          Date.parse(statuses.fade[1].timeRequested),
+      );
+    });
+  });
+
+  describe('cancelAction', () => {
+    it('should abort and remove the action request', async () => {
+      const thing = new Thing(partialTD);
+      let actionSignal;
+      let resolveStarted;
+      const started = new Promise((resolve) => {
+        resolveStarted = resolve;
+      });
+      thing.setActionInvokeHandler(
+        'blink',
+        async (_input, signal) =>
+          new Promise((resolve) => {
+            actionSignal = signal;
+            resolveStarted();
+            signal.addEventListener('abort', resolve, { once: true });
+          }),
+      );
+
+      const status = thing.invokeActionAsync('blink', {});
+      await started;
+      thing.cancelAction('blink', status.href.split('/').at(-1));
+
+      assert.equal(actionSignal.aborted, true);
+      assert.throws(
+        () => thing.queryAction('blink', status.href.split('/').at(-1)),
+        /NotFoundError/,
+      );
+    });
+
+    it('should throw when the action does not exist', () => {
+      const thing = new Thing(partialTD);
+
+      assert.throws(
+        () => thing.cancelAction('missing', 'request-id'),
+        /NotFoundError/,
+      );
+    });
+
+    it('should throw when the action request does not exist', () => {
+      const thing = new Thing(partialTD);
+
+      assert.throws(
+        () => thing.cancelAction('blink', 'missing-request'),
         /NotFoundError/,
       );
     });

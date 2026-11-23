@@ -211,14 +211,14 @@ class ActionAffordance extends InteractionAffordance {
   /**
    * Set invoke handler function.
    *
-   * @param {(value: any, signal?: AbortSignal) => Promise<any>} handler An asynchronous function to handle action invocations.
+   * @param {(input: any, signal?: AbortSignal) => Promise<any>} handler An asynchronous function to handle action invocations.
    */
   setInvokeHandler(handler) {
     this.invokeHandler = handler;
   }
 
   /**
-   * Invoke the action.
+   * Invoke a synchronous action.
    *
    * @param {any} input The input to the action, conforming to the input data
    *   schema.
@@ -236,7 +236,7 @@ class ActionAffordance extends InteractionAffordance {
   }
 
   /**
-   * Start an asynchronous invocation and return its initial status.
+   * Invoke an asynchronous action.
    *
    * @param {any} input The action input.
    * @returns {ActionStatus & {href: string}} The initial status of the action request.
@@ -301,6 +301,21 @@ class ActionAffordance extends InteractionAffordance {
   queryAction(actionID) {
     const request = this.#actionRequests.get(actionID);
     return request ? { ...request.status } : undefined;
+  }
+
+  /**
+   * Get the statuses of all action requests, most recent first.
+   *
+   * @returns {Array<ActionStatus>} The current statuses of the action requests.
+   */
+  queryAllActions() {
+    return [...this.#actionRequests.values()]
+      .reverse()
+      .map(({ status }) => ({ ...status }))
+      .sort(
+        (a, b) =>
+          Date.parse(b.timeRequested ?? '') - Date.parse(a.timeRequested ?? ''),
+      );
   }
 
   /**

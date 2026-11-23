@@ -164,6 +164,7 @@
  *   properties?: Record<string, PropertyDescription>,
  *   actions?: Record<string, ActionDescription>,
  *   events?: Record<string, EventDescription>,
+ *   forms?: Array<Form>,
  *   security: string|Array<string>,
  *   securityDefinitions: string|Record<string, object>
  * }} ThingDescription
@@ -185,6 +186,7 @@
  *   properties?: Record<string, PartialPropertyDescription>,
  *   actions?: Record<string, PartialActionDescription>,
  *   events?: Record<string, PartialEventDescription>,
+ *   forms?: Array<Form>,
  *   security?: string|Array<string>,
  *   securityDefinitions?: string|Record<string, object>
  * }} PartialThingDescription
