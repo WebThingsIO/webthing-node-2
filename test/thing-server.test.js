@@ -102,6 +102,68 @@ describe('ThingServer', () => {
     });
   });
 
+  describe('GET /actions', () => {
+    it('should return action request statuses grouped newest first', async () => {
+      const firstInvocation = await fetch(baseUrl + '/actions/fade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 25 }),
+      });
+      const firstStatus = await firstInvocation.json();
+
+      const secondInvocation = await fetch(baseUrl + '/actions/fade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 50 }),
+      });
+      const secondStatus = await secondInvocation.json();
+
+      const response = await fetch(baseUrl + '/actions');
+      assert.equal(response.status, 200);
+      const statuses = await response.json();
+      assert.deepEqual(Object.keys(statuses).sort(), [
+        'blink',
+        'cancel',
+        'fade',
+        'fail',
+      ]);
+      assert.deepEqual(statuses.blink, []);
+      assert.deepEqual(statuses.cancel, []);
+      assert.deepEqual(statuses.fail, []);
+      assert.deepEqual(
+        statuses.fade.map(({ href }) => href),
+        [secondStatus.href, firstStatus.href],
+      );
+      assert.ok(
+        Date.parse(statuses.fade[0].timeRequested) >=
+          Date.parse(statuses.fade[1].timeRequested),
+      );
+    });
+
+    it('should return 404 when the Thing has no actions', async () => {
+      const emptyThingServer = new ThingServer(
+        new Thing({ title: 'No Actions' }),
+      );
+      await new Promise((resolve) => {
+        emptyThingServer.server = emptyThingServer.app.listen(0, resolve);
+      });
+
+      try {
+        const port = emptyThingServer.server.address().port;
+        const emptyBaseUrl = `http://localhost:${port}`;
+        const tdResponse = await fetch(emptyBaseUrl + '/');
+        const td = await tdResponse.json();
+        assert.equal(td.actions, undefined);
+        assert.equal(td.forms, undefined);
+
+        const response = await fetch(emptyBaseUrl + '/actions');
+        assert.equal(response.status, 404);
+      } finally {
+        emptyThingServer.stop();
+      }
+    });
+  });
+
   describe('PUT /properties/:name', () => {
     it('should update the property value when the property exists', async () => {
       const response = await fetch(baseUrl + '/properties/on', {

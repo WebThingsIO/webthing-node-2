@@ -178,6 +178,23 @@ class ThingServer {
     );
 
     this.app.get(
+      '/actions',
+      /**
+       * Query All Actions
+       *
+       * @param {Request} _request
+       * @param {Response} response
+       */
+      (_request, response) => {
+        if (this.thing.actions.size === 0) {
+          response.status(404).send();
+          return;
+        }
+        response.status(200).json(this.thing.queryAllActions());
+      },
+    );
+
+    this.app.get(
       '/actions/:name/:actionID',
       /**
        * Query Action Status
@@ -192,12 +209,19 @@ class ThingServer {
         const actionID = Array.isArray(request.params.actionID)
           ? request.params.actionID[0]
           : request.params.actionID;
-        const actionStatus = this.thing.queryAction(name, actionID);
-        if (!actionStatus) {
-          response.status(404).send();
+        try {
+          const actionStatus = this.thing.queryAction(name, actionID);
+          response.status(200).json(actionStatus);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'InternalError';
+          if (errorMessage === 'NotFoundError') {
+            response.status(404).send();
+          } else {
+            response.status(500).send();
+          }
           return;
         }
-        response.status(200).json(actionStatus);
       },
     );
 

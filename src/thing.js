@@ -354,6 +354,7 @@ class Thing {
     // If actions are defined then add an actions member
     if (Object.keys(actions).length > 0) {
       thingDescription.actions = actions;
+      thingDescription.forms = [{ href: 'actions', op: 'queryallactions' }];
     }
     return thingDescription;
   }
@@ -472,11 +473,30 @@ class Thing {
    *
    * @param {string} name The name of the action.
    * @param {string} actionID The ID of the action request.
-   * @returns {ActionStatus|undefined} The current status, if it exists.
+   * @returns {ActionStatus} The current status.
+   * @throws {Error} Throws NotFoundError if the action or request does not exist.
    */
   queryAction(name, actionID) {
     const action = this.actions.get(name);
-    return action?.queryAction(actionID);
+    const status = action?.queryAction(actionID);
+    if (!status) {
+      throw new Error('NotFoundError');
+    }
+    return status;
+  }
+
+  /**
+   * Get the statuses of all action requests, grouped by action name.
+   *
+   * @returns {Record<string, Array<ActionStatus>>} The current statuses.
+   */
+  queryAllActions() {
+    /** @type {Record<string, Array<ActionStatus>>} */
+    const statuses = {};
+    for (const [name, action] of this.actions) {
+      statuses[name] = action.queryAllActions();
+    }
+    return statuses;
   }
 
   /**
