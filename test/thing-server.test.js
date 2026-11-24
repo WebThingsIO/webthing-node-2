@@ -84,6 +84,10 @@ describe('ThingServer', () => {
       const td = await response.json();
       assert.strictEqual(td.title, 'Test Lamp');
       assert.equal(td['@context'], 'https://www.w3.org/2022/wot/td/v1.1');
+      assert.deepEqual(td.forms.find(({ href }) => href === 'properties').op, [
+        'readallproperties',
+        'writemultipleproperties',
+      ]);
       assert.deepEqual(td.securityDefinitions, {
         nosec_sc: { scheme: 'nosec' },
       });
@@ -239,6 +243,65 @@ describe('ThingServer', () => {
       });
 
       assert.strictEqual(response.status, 404);
+    });
+  });
+
+  describe('PUT /properties', () => {
+    it('should write multiple writable properties and reject invalid requests', async () => {
+      const writtenValues = {};
+      const multiPropertyThing = new Thing({
+        title: 'Multiple Properties',
+        properties: {
+          on: { type: 'boolean' },
+          level: { type: 'number' },
+          locked: { type: 'boolean', readOnly: true },
+        },
+      });
+      multiPropertyThing.setPropertyWriteHandler('on', async (value) => {
+        writtenValues.on = value;
+      });
+      multiPropertyThing.setPropertyWriteHandler('level', async (value) => {
+        writtenValues.level = value;
+      });
+      const multiPropertyServer = new ThingServer(multiPropertyThing);
+      await new Promise((resolve) => {
+        multiPropertyServer.server = multiPropertyServer.app.listen(0, resolve);
+      });
+
+      try {
+        const url = `http://localhost:${multiPropertyServer.server.address().port}/properties`;
+        const options = {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        };
+        let response = await fetch(url, {
+          ...options,
+          body: JSON.stringify({ on: true, level: 50 }),
+        });
+        assert.equal(response.status, 204);
+        assert.deepEqual(writtenValues, { on: true, level: 50 });
+
+        response = await fetch(url, {
+          ...options,
+          body: JSON.stringify({ on: false, missing: 1 }),
+        });
+        assert.equal(response.status, 404);
+        assert.deepEqual(writtenValues, { on: true, level: 50 });
+
+        response = await fetch(url, {
+          ...options,
+          body: JSON.stringify({ locked: true }),
+        });
+        assert.equal(response.status, 400);
+
+        response = await fetch(url, {
+          ...options,
+          body: JSON.stringify([]),
+        });
+        assert.equal(response.status, 400);
+      } finally {
+        multiPropertyServer.stop();
+      }
     });
   });
 

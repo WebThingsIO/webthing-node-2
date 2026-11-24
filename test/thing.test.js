@@ -71,10 +71,25 @@ describe('Thing', () => {
           },
         },
         forms: [
-          { href: 'properties', op: ['readallproperties'] },
+          {
+            href: 'properties',
+            op: ['readallproperties', 'writemultipleproperties'],
+          },
           { href: 'actions', op: 'queryallactions' },
         ],
       });
+    });
+
+    it('should omit the write operation when all properties are read-only', () => {
+      const thing = new Thing({
+        title: 'Read-only Thing',
+        properties: { status: { type: 'string', readOnly: true } },
+      });
+
+      const td = thing.getThingDescription();
+      assert.deepEqual(td.forms, [
+        { href: 'properties', op: ['readallproperties'] },
+      ]);
     });
   });
 
@@ -148,6 +163,57 @@ describe('Thing', () => {
         () => thing.writeProperty('on', true),
         /InternalError/,
       );
+    });
+  });
+
+  describe('writeMultipleProperties', () => {
+    it('should write all requested writable properties', async () => {
+      const thing = new Thing({
+        title: 'Writable Thing',
+        properties: {
+          on: { type: 'boolean' },
+          level: { type: 'number' },
+          locked: { type: 'boolean', readOnly: true },
+        },
+      });
+      const writtenValues = {};
+      thing.setPropertyWriteHandler('on', async (value) => {
+        writtenValues.on = value;
+      });
+      thing.setPropertyWriteHandler('level', async (value) => {
+        writtenValues.level = value;
+      });
+
+      await thing.writeMultipleProperties({ on: true, level: 50 });
+      assert.deepEqual(writtenValues, { on: true, level: 50 });
+    });
+
+    it('should reject invalid input before writing any property', async () => {
+      const thing = new Thing({
+        title: 'Writable Thing',
+        properties: {
+          on: { type: 'boolean' },
+          locked: { type: 'boolean', readOnly: true },
+        },
+      });
+      let written = false;
+      thing.setPropertyWriteHandler('on', async () => {
+        written = true;
+      });
+
+      await assert.rejects(
+        () => thing.writeMultipleProperties({ on: true, locked: true }),
+        /BadRequest/,
+      );
+      await assert.rejects(
+        () => thing.writeMultipleProperties({ on: true, missing: true }),
+        /NotFoundError/,
+      );
+      await assert.rejects(
+        () => thing.writeMultipleProperties(null),
+        /BadRequest/,
+      );
+      assert.equal(written, false);
     });
   });
 

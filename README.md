@@ -95,6 +95,10 @@ thing.setPropertyReadHandler('on', async function () {
 thing.setPropertyReadHandler('level', async function () {
   return 50;
 });
+
+thing.setPropertyWriteHandler('on', async function (value) {
+  // Update the lamp state.
+});
 ```
 
 ### Actions

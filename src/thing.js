@@ -350,9 +350,13 @@ class Thing {
     // If properties are defined then add a properties member
     if (Object.keys(properties).length > 0) {
       thingDescription.properties = properties;
-      thingDescription.forms = [
-        { href: 'properties', op: ['readallproperties'] },
-      ];
+      const propertyOperations = ['readallproperties'];
+      if (
+        [...this.properties.values()].some((property) => !property.readOnly)
+      ) {
+        propertyOperations.push('writemultipleproperties');
+      }
+      thingDescription.forms = [{ href: 'properties', op: propertyOperations }];
     }
     // If actions are defined then add an actions member
     if (Object.keys(actions).length > 0) {
@@ -395,7 +399,7 @@ class Thing {
   }
 
   /**
-   * Set Action Handler.
+   * Set Action Invoke Handler.
    *
    * @param {string} name The name of the action to handle.
    * @param {(value: any, signal?: AbortSignal) => Promise<any>} handler An async function to handle action invocations.
@@ -425,6 +429,23 @@ class Thing {
   }
 
   /**
+   * Write Property.
+   *
+   * @param {string} name The name of the property to write.
+   * @param {any} value The property value to write.
+   * @returns {Promise<void>} A Promise that resolves once the property has been
+   *   written successfully.
+   */
+  async writeProperty(name, value) {
+    let property = this.properties.get(name);
+    if (!property) {
+      console.error(`No property called ${name} could be found`);
+      throw new Error('NotFoundError');
+    }
+    return property.write(value);
+  }
+
+  /**
    * Read All Properties.
    *
    * @returns {Promise<Record<string, any>>} The current values keyed by property name.
@@ -443,20 +464,36 @@ class Thing {
   }
 
   /**
-   * Write Property.
+   * Write Multiple Properties.
    *
-   * @param {string} name The name of the property to write.
-   * @param {any} value The property value to write.
-   * @returns {Promise<void>} A Promise that resolves once the property has been
+   * @param {Record<string, any>} values The property values keyed by property name.
+   * @returns {Promise<void>} A Promise that resolves once all properties have been
    *   written successfully.
    */
-  async writeProperty(name, value) {
-    let property = this.properties.get(name);
-    if (!property) {
-      console.error(`No property called ${name} could be found`);
-      throw new Error('NotFoundError');
+  async writeMultipleProperties(values) {
+    if (
+      values === null ||
+      typeof values !== 'object' ||
+      Array.isArray(values)
+    ) {
+      throw new Error('BadRequest');
     }
-    return property.write(value);
+
+    const entries = Object.entries(values);
+    for (const [name] of entries) {
+      const property = this.properties.get(name);
+      if (!property) {
+        console.error(`No property called ${name} could be found`);
+        throw new Error('NotFoundError');
+      }
+      if (property.readOnly === true) {
+        throw new Error('BadRequest');
+      }
+    }
+
+    for (const [name, value] of entries) {
+      await this.writeProperty(name, value);
+    }
   }
 
   /**
@@ -511,20 +548,6 @@ class Thing {
   }
 
   /**
-   * Get the statuses of all action requests, grouped by action name.
-   *
-   * @returns {Record<string, Array<ActionStatus>>} The current statuses.
-   */
-  queryAllActions() {
-    /** @type {Record<string, Array<ActionStatus>>} */
-    const statuses = {};
-    for (const [name, action] of this.actions) {
-      statuses[name] = action.queryAll();
-    }
-    return statuses;
-  }
-
-  /**
    * Cancel an action request.
    *
    * @param {string} name The name of the action.
@@ -537,6 +560,20 @@ class Thing {
       throw new Error('NotFoundError');
     }
     action.cancelAction(actionID);
+  }
+
+  /**
+   * Get the statuses of all action requests, grouped by action name.
+   *
+   * @returns {Record<string, Array<ActionStatus>>} The current statuses.
+   */
+  queryAllActions() {
+    /** @type {Record<string, Array<ActionStatus>>} */
+    const statuses = {};
+    for (const [name, action] of this.actions) {
+      statuses[name] = action.queryAll();
+    }
+    return statuses;
   }
 }
 
