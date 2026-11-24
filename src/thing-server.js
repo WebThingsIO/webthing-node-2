@@ -32,28 +32,6 @@ class ThingServer {
     );
 
     this.app.get(
-      '/properties',
-      /**
-       * Read All Properties
-       *
-       * @param {Request} _request
-       * @param {Response} response
-       */
-      async (_request, response) => {
-        if (this.thing.properties.size === 0) {
-          response.status(404).send();
-          return;
-        }
-        try {
-          const values = await this.thing.readAllProperties();
-          response.status(200).json(values);
-        } catch {
-          response.status(500).send();
-        }
-      },
-    );
-
-    this.app.get(
       '/properties/:name',
       /**
        * Read Property
@@ -104,6 +82,61 @@ class ThingServer {
         const value = request.body;
         try {
           await this.thing.writeProperty(name, value);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'InternalError';
+          switch (errorMessage) {
+            case 'NotFoundError':
+              response.status(404).send();
+              break;
+            case 'BadRequest':
+              response.status(400).send();
+              break;
+            case 'InternalError':
+              response.status(500).send();
+              break;
+            default:
+              response.status(500).send();
+          }
+          return;
+        }
+        response.status(204).send();
+      },
+    );
+
+    this.app.get(
+      '/properties',
+      /**
+       * Read All Properties
+       *
+       * @param {Request} _request
+       * @param {Response} response
+       */
+      async (_request, response) => {
+        if (this.thing.properties.size === 0) {
+          response.status(404).send();
+          return;
+        }
+        try {
+          const values = await this.thing.readAllProperties();
+          response.status(200).json(values);
+        } catch {
+          response.status(500).send();
+        }
+      },
+    );
+
+    this.app.put(
+      '/properties',
+      /**
+       * Write Multiple Properties
+       *
+       * @param {Request} request
+       * @param {Response} response
+       */
+      async (request, response) => {
+        try {
+          await this.thing.writeMultipleProperties(request.body);
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'InternalError';
@@ -200,26 +233,9 @@ class ThingServer {
     );
 
     this.app.get(
-      '/actions',
-      /**
-       * Query All Actions
-       *
-       * @param {Request} _request
-       * @param {Response} response
-       */
-      (_request, response) => {
-        if (this.thing.actions.size === 0) {
-          response.status(404).send();
-          return;
-        }
-        response.status(200).json(this.thing.queryAllActions());
-      },
-    );
-
-    this.app.get(
       '/actions/:name/:actionID',
       /**
-       * Query Action Status
+       * Query Action
        *
        * @param {Request} request
        * @param {Response} response
@@ -280,6 +296,23 @@ class ThingServer {
           return;
         }
         response.status(204).send();
+      },
+    );
+
+    this.app.get(
+      '/actions',
+      /**
+       * Query All Actions
+       *
+       * @param {Request} _request
+       * @param {Response} response
+       */
+      (_request, response) => {
+        if (this.thing.actions.size === 0) {
+          response.status(404).send();
+          return;
+        }
+        response.status(200).json(this.thing.queryAllActions());
       },
     );
   }
