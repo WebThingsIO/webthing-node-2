@@ -84,7 +84,7 @@
  *
  * @typedef {InteractionDescription & DataSchemaDescription & {
  *   forms: Array<Form>,
- *   observeable?: boolean|undefined
+ *   observable?: boolean|undefined
  * }} PropertyDescription
  */
 
@@ -95,7 +95,7 @@
  *
  * @typedef {InteractionDescription & DataSchemaDescription & {
  *   forms?: Array<Form>,
- *   observeable?: boolean|undefined
+ *   observable?: boolean|undefined
  * }} PartialPropertyDescription
  */
 

@@ -39,14 +39,14 @@ class PropertyAffordance extends InteractionAffordance {
   enum;
 
   /**
-   * @type {boolean|undefined}
+   * @type {boolean}
    */
-  readOnly;
+  readOnly = false;
 
   /**
-   * @type {boolean|undefined}
+   * @type {boolean}
    */
-  writeOnly;
+  writeOnly = false;
 
   /**
    * @type {string|undefined}
@@ -61,9 +61,9 @@ class PropertyAffordance extends InteractionAffordance {
   /* End of property data schema */
 
   /**
-   * @type {boolean|undefined}
+   * @type {boolean}
    */
-  observeable;
+  observable = false;
 
   /**
    * @type {DataSchema}
@@ -93,6 +93,13 @@ class PropertyAffordance extends InteractionAffordance {
     // Parse writeOnly member
     try {
       this.#parseWriteOnlyMember(metadata.writeOnly);
+    } catch (error) {
+      validationError.merge(error);
+    }
+
+    // Parse observable member
+    try {
+      this.#parseObservableMember(metadata.observable);
     } catch (error) {
       validationError.merge(error);
     }
@@ -173,6 +180,30 @@ class PropertyAffordance extends InteractionAffordance {
       // Otherwise set the provided value
     } else {
       this.writeOnly = writeOnly;
+    }
+  }
+
+  /**
+   * Parse observable member.
+   *
+   * @param {boolean|undefined} observable
+   */
+  #parseObservableMember(observable) {
+    if (!(observable === undefined || typeof observable == 'boolean')) {
+      throw new ValidationError([
+        {
+          field: `properties.${this.name}.observable`,
+          description: 'observable member is not a boolean',
+        },
+      ]);
+    }
+
+    // If undefined then default to false
+    if (observable === undefined) {
+      this.observable = false;
+      // Otherwise set the provided value
+    } else {
+      this.observable = observable;
     }
   }
 
@@ -308,6 +339,11 @@ class PropertyAffordance extends InteractionAffordance {
       metadata.writeOnly = true;
     }
 
+    // Only set observable member if explicitly set to true since false is default
+    if (this.observable === true) {
+      metadata.observable = true;
+    }
+
     // Generate Form
     const propertyForm = {
       href: `properties/${this.name}`,
@@ -320,6 +356,15 @@ class PropertyAffordance extends InteractionAffordance {
       propertyForm.op.push('writeproperty');
     }
     metadata.forms.push(propertyForm);
+
+    if (this.writeOnly !== true && this.observable === true) {
+      metadata.forms.push({
+        href: `properties/${this.name}`,
+        op: ['observeproperty', 'unobserveproperty'],
+        contentType: 'application/json',
+        subprotocol: 'sse',
+      });
+    }
 
     return metadata;
   }

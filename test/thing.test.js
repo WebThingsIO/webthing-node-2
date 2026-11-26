@@ -10,6 +10,7 @@ describe('Thing', () => {
       on: {
         type: 'boolean',
         title: 'On/Off',
+        observable: true,
       },
     },
     actions: {
@@ -48,10 +49,17 @@ describe('Thing', () => {
         security: 'nosec_sc',
         properties: {
           on: {
+            observable: true,
             forms: [
               {
                 href: 'properties/on',
                 op: ['readproperty', 'writeproperty'],
+              },
+              {
+                href: 'properties/on',
+                op: ['observeproperty', 'unobserveproperty'],
+                contentType: 'application/json',
+                subprotocol: 'sse',
               },
             ],
             title: 'On/Off',
@@ -157,10 +165,109 @@ describe('Thing', () => {
       assert.strictEqual(value, true);
     });
 
+    it('should emit propertyChanged after writing an observable property', async () => {
+      const thing = new Thing(partialTD);
+      let writtenValue;
+      let change;
+      thing.setPropertyWriteHandler('on', async (value) => {
+        writtenValue = value;
+      });
+      thing.once('propertyChanged', (...args) => {
+        change = args;
+      });
+
+      await thing.writeProperty('on', true);
+
+      assert.equal(writtenValue, true);
+      assert.equal(change[0], 'on');
+      assert.equal(change[1], true);
+      assert.equal(typeof change[2], 'string');
+    });
+
     it('should reject when no handler is registered', async () => {
       const thing = new Thing(partialTD);
       await assert.rejects(
         () => thing.writeProperty('on', true),
+        /InternalError/,
+      );
+    });
+
+    it('should not emit propertyChanged when the write fails', async () => {
+      const thing = new Thing(partialTD);
+      thing.setPropertyWriteHandler('on', async () => {
+        throw new Error('write failed');
+      });
+      let emitted = false;
+      thing.once('propertyChanged', () => {
+        emitted = true;
+      });
+
+      await assert.rejects(
+        () => thing.writeProperty('on', true),
+        /write failed/,
+      );
+      assert.equal(emitted, false);
+    });
+  });
+
+  describe('emitPropertyChange', () => {
+    it('should emit the provided value and resolve after emission', async () => {
+      const thing = new Thing(partialTD);
+      let emittedValue;
+      thing.once('propertyChanged', (_name, value) => {
+        emittedValue = value;
+      });
+
+      await thing.emitPropertyChange('on', true);
+
+      assert.equal(emittedValue, true);
+    });
+
+    it('should read and emit the current value when omitted', async () => {
+      const thing = new Thing(partialTD);
+      thing.setPropertyReadHandler('on', async () => true);
+      let emittedValue;
+      thing.once('propertyChanged', (_name, value) => {
+        emittedValue = value;
+      });
+
+      await thing.emitPropertyChange('on');
+
+      assert.equal(emittedValue, true);
+    });
+
+    it('should reject for an unknown property, invalid value, or missing read handler', async () => {
+      const thing = new Thing(partialTD);
+
+      await assert.rejects(
+        () => thing.emitPropertyChange('missing'),
+        /NotFoundError/,
+      );
+      await assert.rejects(
+        () => thing.emitPropertyChange('on', 'invalid'),
+        /InternalError/,
+      );
+      await assert.rejects(
+        () => thing.emitPropertyChange('on'),
+        /InternalError/,
+      );
+    });
+
+    it('should reject changes for non-observable and write-only properties', async () => {
+      const thing = new Thing({
+        title: 'Test Thing',
+        properties: {
+          status: { type: 'boolean' },
+          secret: { type: 'boolean', writeOnly: true, observable: true },
+        },
+      });
+
+      await assert.rejects(
+        () => thing.emitPropertyChange('status', true),
+        /InternalError/,
+      );
+      await assert.rejects(
+        () => thing.emitPropertyChange('secret', true),
         /InternalError/,
       );
     });

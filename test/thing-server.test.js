@@ -11,6 +11,7 @@ describe('ThingServer', () => {
       on: {
         type: 'boolean',
         title: 'On/Off',
+        observable: true,
       },
       token: {
         type: 'string',
@@ -88,6 +89,21 @@ describe('ThingServer', () => {
         'readallproperties',
         'writemultipleproperties',
       ]);
+      assert.deepEqual(
+        td.properties.on.forms.find(({ subprotocol }) => subprotocol === 'sse'),
+        {
+          href: 'properties/on',
+          op: ['observeproperty', 'unobserveproperty'],
+          contentType: 'application/json',
+          subprotocol: 'sse',
+        },
+      );
+      assert.equal(
+        td.properties.token.forms.some(
+          ({ subprotocol }) => subprotocol === 'sse',
+        ),
+        false,
+      );
       assert.deepEqual(td.securityDefinitions, {
         nosec_sc: { scheme: 'nosec' },
       });
@@ -152,6 +168,93 @@ describe('ThingServer', () => {
     it('should return 404 for an invalid property name', async () => {
       const response = await fetch(baseUrl + '/properties/foo');
       assert.strictEqual(response.status, 404);
+    });
+  });
+
+  describe('GET /properties/:name (SSE)', () => {
+    it('should read the property when both JSON and SSE are acceptable', async () => {
+      for (const accept of ['text/event-stream, application/json', '*/*']) {
+        const response = await fetch(baseUrl + '/properties/on', {
+          headers: { Accept: accept },
+        });
+
+        assert.equal(response.status, 200);
+        assert.match(
+          response.headers.get('content-type'),
+          /^application\/json/,
+        );
+        assert.equal(await response.json(), true);
+      }
+    });
+
+    it('should stream property changes as named JSON events', async () => {
+      const response = await fetch(baseUrl + '/properties/on', {
+        headers: { Accept: 'text/event-stream' },
+      });
+
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type'), /^text\/event-stream/);
+      assert.equal(response.headers.get('cache-control'), 'no-cache');
+
+      const reader = response.body.getReader();
+      const nextEvent = reader.read();
+      const writeResponse = await fetch(baseUrl + '/properties/on', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(false),
+      });
+      assert.equal(writeResponse.status, 204);
+
+      const { value, done } = await nextEvent;
+      assert.equal(done, false);
+      const event = new TextDecoder().decode(value);
+      assert.match(event, /^event: on\ndata: false\nid: .+\n\n$/);
+      assert.match(
+        event.match(/^id: (.+)$/m)[1],
+        /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/,
+      );
+
+      const nextEventRead = reader.read();
+      currentValue = true;
+      await server.thing.emitPropertyChange('on');
+      const { value: nextValue, done: nextDone } = await nextEventRead;
+      assert.equal(nextDone, false);
+      const nextEventText = new TextDecoder().decode(nextValue);
+      assert.match(nextEventText, /^event: on\ndata: true\nid: .+\n\n$/);
+      assert.notEqual(
+        nextEventText.match(/^id: (.+)$/m)[1],
+        event.match(/^id: (.+)$/m)[1],
+      );
+      await reader.cancel();
+    });
+
+    it('should return 406 for properties that cannot be observed', async () => {
+      const unobservableServer = new ThingServer(
+        new Thing({
+          title: 'Unobservable Thing',
+          properties: {
+            status: { type: 'string' },
+            token: { type: 'string', writeOnly: true, observable: true },
+          },
+        }),
+      );
+      await new Promise((resolve) => {
+        unobservableServer.server = unobservableServer.app.listen(0, resolve);
+      });
+
+      try {
+        const url = `http://localhost:${unobservableServer.server.address().port}/properties`;
+        const headers = { Accept: 'text/event-stream' };
+        const unknownResponse = await fetch(`${url}/missing`, { headers });
+        const nonObservableResponse = await fetch(`${url}/status`, { headers });
+        const writeOnlyResponse = await fetch(`${url}/token`, { headers });
+
+        assert.equal(unknownResponse.status, 404);
+        assert.equal(nonObservableResponse.status, 406);
+        assert.equal(writeOnlyResponse.status, 406);
+      } finally {
+        unobservableServer.stop();
+      }
     });
   });
 

@@ -1,6 +1,7 @@
 import ValidationError from './validation-error.js';
 import PropertyAffordance from './property-affordance.js';
 import ActionAffordance from './action-affordance.js';
+import { EventEmitter } from 'node:events';
 /** @import {SecurityScheme, PartialPropertyDescription, PropertyDescription,
  *    PartialActionDescription, ActionDescription, PartialThingDescription,
  *    ThingDescription, ActionStatus} from "./types.js"
@@ -14,7 +15,7 @@ import ActionAffordance from './action-affordance.js';
  * Implements a Thing from the W3C WoT Thing Description 1.1 specification.
  * https://www.w3.org/TR/wot-thing-description/#thing
  */
-class Thing {
+class Thing extends EventEmitter {
   DEFAULT_CONTEXT = 'https://www.w3.org/2022/wot/td/v1.1';
 
   /**
@@ -36,6 +37,8 @@ class Thing {
    * @type {Map<string, ActionAffordance>}
    */
   actions = new Map();
+
+  #lastPropertyChangeTimestamp = 0;
 
   /**
    * @type {Record<string, SecurityScheme>}
@@ -59,6 +62,8 @@ class Thing {
    *   to which Forms will be added.
    */
   constructor(partialTD) {
+    super();
+
     // Create an empty validation error to collect errors during parsing.
     let validationError = new ValidationError([]);
 
@@ -442,7 +447,47 @@ class Thing {
       console.error(`No property called ${name} could be found`);
       throw new Error('NotFoundError');
     }
-    return property.write(value);
+    const result = await property.write(value);
+    if (property.observable === true && property.writeOnly !== true) {
+      await this.emitPropertyChange(name, value);
+    }
+    return result;
+  }
+
+  /**
+   * Emit a property change to observers.
+   *
+   * @param {string} name The name of the property that changed.
+   * @param {any} [value] The new property value. If omitted, it is read from the property handler.
+   * @returns {Promise<void>} A Promise that resolves once the change has been emitted.
+   */
+  async emitPropertyChange(name, value) {
+    const property = this.properties.get(name);
+    if (!property) {
+      console.error(`No property called ${name} could be found`);
+      throw new Error('NotFoundError');
+    }
+    if (property.writeOnly === true || property.observable !== true) {
+      console.error(
+        'Tried to emit a property change for a non-observable or write-only property',
+      );
+      throw new Error('InternalError');
+    }
+    const data = value === undefined ? await property.read() : value;
+    if (!property.valueSchema.validate(data)) {
+      console.error('Tried to emit a property change with an invalid value');
+      throw new Error('InternalError');
+    }
+    this.#lastPropertyChangeTimestamp = Math.max(
+      Date.now(),
+      this.#lastPropertyChangeTimestamp + 1,
+    );
+    this.emit(
+      'propertyChanged',
+      name,
+      data,
+      new Date(this.#lastPropertyChangeTimestamp).toISOString(),
+    );
   }
 
   /**

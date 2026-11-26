@@ -101,6 +101,14 @@ thing.setPropertyWriteHandler('on', async function (value) {
 });
 ```
 
+Property changes are emitted automatically when an observable property is written via its write handler, but for other property changes you should explicitly call `emitPropertyChange()` to notify active SSE observers. You can provide the new value directly, or
+omit it to read the current value using the property's read handler:
+
+```javascript
+await thing.emitPropertyChange('on', true);
+await thing.emitPropertyChange('on');
+```
+
 ### Actions
 
 Set action handlers:
