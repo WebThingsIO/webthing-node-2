@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/benfrancis/webthing-node-2#readme",
   "dependencies": {
+    "ajv": "^8.20.0",
     "express": "^5.1.0"
   },
   "devDependencies": {

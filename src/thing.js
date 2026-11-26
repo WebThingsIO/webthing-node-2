@@ -480,7 +480,7 @@ class Thing {
     }
 
     const entries = Object.entries(values);
-    for (const [name] of entries) {
+    for (const [name, value] of entries) {
       const property = this.properties.get(name);
       if (!property) {
         console.error(`No property called ${name} could be found`);
@@ -489,6 +489,7 @@ class Thing {
       if (property.readOnly === true) {
         throw new Error('BadRequest');
       }
+      property.validateWrite(value);
     }
 
     for (const [name, value] of entries) {
@@ -559,7 +560,7 @@ class Thing {
     if (!action) {
       throw new Error('NotFoundError');
     }
-    action.cancelAction(actionID);
+    action.cancel(actionID);
   }
 
   /**

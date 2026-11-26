@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import PropertyAffordance from '../src/property-affordance.js';
+import DataSchema from '../src/data-schema.js';
 import ValidationError from '../src/validation-error.js';
 
 describe('PropertyAffordance', () => {
@@ -18,6 +19,8 @@ describe('PropertyAffordance', () => {
       assert.equal(property.type, 'boolean');
       assert.equal(property.readOnly, true);
       assert.equal(property.writeOnly, false);
+      assert.ok(property.valueSchema instanceof DataSchema);
+      assert.equal(property.valueSchema.validate(true), true);
     });
 
     it('should default readOnly and writeOnly to false when omitted', () => {
@@ -26,6 +29,7 @@ describe('PropertyAffordance', () => {
       assert.equal(property.readOnly, false);
       assert.equal(property.writeOnly, false);
       assert.equal(property.type, 'string');
+      assert.ok(property.valueSchema instanceof DataSchema);
     });
 
     it('should reject invalid member types', () => {
@@ -137,6 +141,23 @@ describe('PropertyAffordance', () => {
 
       assert.equal(await property.read(), 42);
       assert.equal(await property.write(7), 7);
+    });
+
+    it('should reject writes and reads that do not match the data schema', async () => {
+      const property = new PropertyAffordance('level', {
+        type: 'integer',
+        minimum: 0,
+        maximum: 100,
+      });
+      let written;
+      property.setWriteHandler(async (value) => {
+        written = value;
+      });
+      property.setReadHandler(async () => 101);
+
+      await assert.rejects(() => property.write(101), /BadRequest/);
+      assert.equal(written, undefined);
+      await assert.rejects(() => property.read(), /InternalError/);
     });
 
     it('should reject when no read or write handler is registered', async () => {

@@ -1,8 +1,9 @@
 import InteractionAffordance from './interaction-affordance.js';
 import ValidationError from './validation-error.js';
 import { randomUUID } from 'node:crypto';
+import DataSchema from './data-schema.js';
 
-/** @import {DataSchema, PartialActionDescription, ActionDescription, Form,
+/** @import {DataSchemaDescription, PartialActionDescription, ActionDescription, Form,
  *    ActionStatus} from "./types.js"
  */
 
@@ -16,12 +17,12 @@ import { randomUUID } from 'node:crypto';
  */
 class ActionAffordance extends InteractionAffordance {
   /**
-   * @type {DataSchema|undefined}
+   * @type {DataSchemaDescription|undefined}
    */
   input;
 
   /**
-   * @type {DataSchema|undefined}
+   * @type {DataSchemaDescription|undefined}
    */
   output;
 
@@ -49,6 +50,16 @@ class ActionAffordance extends InteractionAffordance {
    * @type {Map<string, ActionRequest>}
    */
   #actionRequests = new Map();
+
+  /**
+   * @type {DataSchema}
+   */
+  inputSchema;
+
+  /**
+   * @type {DataSchema}
+   */
+  outputSchema;
 
   /**
    * Create a new Action.
@@ -101,12 +112,18 @@ class ActionAffordance extends InteractionAffordance {
     if (validationError.validationErrors.length > 0) {
       throw validationError;
     }
+
+    this.inputSchema = new DataSchema(this.input, `actions.${this.name}.input`);
+    this.outputSchema = new DataSchema(
+      this.output,
+      `actions.${this.name}.output`,
+    );
   }
 
   /**
    * Parse input member.
    *
-   * @param {DataSchema|undefined} input
+   * @param {DataSchemaDescription|undefined} input
    */
   #parseInputMember(input) {
     if (!(input === undefined || typeof input === 'object')) {
@@ -117,13 +134,12 @@ class ActionAffordance extends InteractionAffordance {
         },
       ]);
     }
-    // TODO: Validate DataSchema
     this.input = input;
   }
 
   /**
    * Parse output member.
-   * @param {DataSchema|undefined} output
+   * @param {DataSchemaDescription|undefined} output
    */
   #parseOutputMember(output) {
     if (!(output === undefined || typeof output === 'object')) {
@@ -134,7 +150,6 @@ class ActionAffordance extends InteractionAffordance {
         },
       ]);
     }
-    // TODO: Validate DataSchema
     this.output = output;
   }
 
@@ -224,15 +239,40 @@ class ActionAffordance extends InteractionAffordance {
    *   schema.
    * @returns {Promise<any>} A Promise which resolves with the output of the
    *   action (if any), conforming to the output data schema.
+   * @throws {Error} Throws InternalError if handler is missing.
    *
    */
   async invoke(input) {
-    // TODO: Validate input against data schema
     if (!this.invokeHandler) {
       console.error(`No invoke handler set for action ${this.name}`);
       throw new Error('InternalError');
     }
-    return this.invokeHandler(input);
+    this.#validateInput(input);
+    const output = await this.invokeHandler(input);
+    this.#validateOutput(output);
+    return output;
+  }
+
+  /**
+   * @param {any} input
+   * @throws {Error} Throws BadRequest on invalid input.
+   */
+  #validateInput(input) {
+    if (!this.inputSchema.validate(input)) {
+      console.error(`Tried to invoke action ${this.name} with invalid input`);
+      throw new Error('BadRequest');
+    }
+  }
+
+  /**
+   * @param {any} output
+   * @throws {Error} Throws InternalError on invalid output.
+   */
+  #validateOutput(output) {
+    if (!this.outputSchema.validate(output)) {
+      console.error(`Action ${this.name} returned invalid output`);
+      throw new Error('InternalError');
+    }
   }
 
   /**
@@ -240,8 +280,10 @@ class ActionAffordance extends InteractionAffordance {
    *
    * @param {any} input The action input.
    * @returns {ActionStatus & {href: string}} The initial status of the action request.
+   * @throws {Error} Throws InternalError if handler is missing.
    */
   invokeAsync(input) {
+    this.#validateInput(input);
     if (!this.invokeHandler) {
       console.error(`No invoke handler set for action ${this.name}`);
       throw new Error('InternalError');
@@ -269,6 +311,7 @@ class ActionAffordance extends InteractionAffordance {
           input,
           request.controller.signal,
         );
+        this.#validateOutput(output);
         if (this.#actionRequests.get(actionID) !== request) {
           return;
         }
@@ -325,7 +368,7 @@ class ActionAffordance extends InteractionAffordance {
    * @throws {Error} Throws NotFoundError if the request does not exist,
    *   or ConflictError if it has already completed or failed.
    */
-  cancelAction(actionID) {
+  cancel(actionID) {
     const request = this.#actionRequests.get(actionID);
     if (!request) {
       throw new Error('NotFoundError');
