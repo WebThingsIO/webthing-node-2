@@ -29,7 +29,7 @@
  */
 
 /**
- * Data Schema
+ * Data Schema Description
  *
  * @typedef {{
  *   '@type'?: string|Array<string>,
@@ -42,16 +42,16 @@
  *   unit?: string,
  *   minimum?: number,
  *   maximum?: number,
- *   properties?: Record<string, DataSchema>,
+ *   properties?: Record<string, DataSchemaDescription>,
  *   required?: Array<string>,
- *   items?: DataSchema,
- *   oneOf?: Array<DataSchema>,
+ *   items?: DataSchemaDescription,
+ *   oneOf?: Array<DataSchemaDescription>,
  *   enum?: Array<any>,
  *   readOnly?: boolean,
  *   writeOnly?: boolean,
  *   format?: string,
  *   type?: 'object'|'array'|'string'|'number'|'integer'|'boolean'|'null'
- * }} DataSchema
+ * }} DataSchemaDescription
  */
 
 /**
@@ -82,7 +82,7 @@
 /**
  * Property Description
  *
- * @typedef {InteractionDescription & DataSchema & {
+ * @typedef {InteractionDescription & DataSchemaDescription & {
  *   forms: Array<Form>,
  *   observeable?: boolean|undefined
  * }} PropertyDescription
@@ -93,7 +93,7 @@
  *
  * Same as PropertyDescription but forms is optional
  *
- * @typedef {InteractionDescription & DataSchema & {
+ * @typedef {InteractionDescription & DataSchemaDescription & {
  *   forms?: Array<Form>,
  *   observeable?: boolean|undefined
  * }} PartialPropertyDescription
@@ -104,8 +104,8 @@
  *
  * @typedef { InteractionDescription & {
  *   forms: Array<Form>,
- *   input?: DataSchema,
- *   output?: DataSchema,
+ *   input?: DataSchemaDescription,
+ *   output?: DataSchemaDescription,
  *   safe?: boolean,
  *   idempotent?: boolean,
  *   synchronous?: boolean,
@@ -119,8 +119,8 @@
  *
  * @typedef { InteractionDescription & {
  *   forms?: Array<Form>,
- *   input?: DataSchema,
- *   output?: DataSchema,
+ *   input?: DataSchemaDescription,
+ *   output?: DataSchemaDescription,
  *   safe?: boolean,
  *   idempotent?: boolean,
  *   synchronous?: boolean,
@@ -132,10 +132,10 @@
  *
  * @typedef {InteractionDescription & {
  *   forms: Array<Form>,
- *   subscription?: DataSchema,
- *   data?: DataSchema,
- *   dataResponse?: DataSchema,
- *   cancellation?: DataSchema,
+ *   subscription?: DataSchemaDescription,
+ *   data?: DataSchemaDescription,
+ *   dataResponse?: DataSchemaDescription,
+ *   cancellation?: DataSchemaDescription,
  * }} EventDescription
  */
 
@@ -144,10 +144,10 @@
  *
  * @typedef {InteractionDescription & {
  *   forms?: Array<Form>,
- *   subscription?: DataSchema,
- *   data?: DataSchema,
- *   dataResponse?: DataSchema,
- *   cancellation?: DataSchema,
+ *   subscription?: DataSchemaDescription,
+ *   data?: DataSchemaDescription,
+ *   dataResponse?: DataSchemaDescription,
+ *   cancellation?: DataSchemaDescription,
  * }} PartialEventDescription
  */
 

@@ -1,7 +1,8 @@
 import InteractionAffordance from './interaction-affordance.js';
 import ValidationError from './validation-error.js';
+import DataSchema from './data-schema.js';
 
-/** @import {DataSchema, PartialPropertyDescription, PropertyDescription, Form} from "./types.js" */
+/** @import {DataSchemaDescription, PartialPropertyDescription, PropertyDescription, Form} from "./types.js" */
 
 /**
  * Property Affordance
@@ -10,9 +11,7 @@ import ValidationError from './validation-error.js';
  * specification https://www.w3.org/TR/wot-thing-description/#propertyaffordance
  */
 class PropertyAffordance extends InteractionAffordance {
-  // *** DataSchema ***/
-  // TODO: Consider making this a mixin or use @implements InteractionAffordance
-  // and @implements DataSchema
+  /* Start of property data schema */
 
   /**
    * @type {any}
@@ -30,7 +29,7 @@ class PropertyAffordance extends InteractionAffordance {
   unit;
 
   /**
-   * @type {Array<DataSchema>|undefined}
+   * @type {Array<DataSchemaDescription>|undefined}
    */
   oneOf;
 
@@ -59,12 +58,17 @@ class PropertyAffordance extends InteractionAffordance {
    */
   type;
 
-  // *** End of DataSchema ***
+  /* End of property data schema */
 
   /**
    * @type {boolean|undefined}
    */
   observeable;
+
+  /**
+   * @type {DataSchema}
+   */
+  valueSchema;
 
   /**
    * Create a new Property.
@@ -116,6 +120,10 @@ class PropertyAffordance extends InteractionAffordance {
     if (validationError.validationErrors.length > 0) {
       throw validationError;
     }
+
+    // Note that metadata contains other property metadata alongside
+    // the data schema, but the data schema validation will ignore it.
+    this.valueSchema = new DataSchema(metadata, `properties.${this.name}`);
   }
 
   /**
@@ -228,13 +236,33 @@ class PropertyAffordance extends InteractionAffordance {
   }
 
   /**
+   * Validate a value against the data schema before writing it.
+   *
+   * @param {any} value
+   * @throws {Error} Throws BadRequest if value is invalid.
+   */
+  validateWrite(value) {
+    if (!this.valueSchema.validate(value)) {
+      console.error(`Tried to write invalid value for property ${this.name}`);
+      throw new Error('BadRequest');
+    }
+  }
+
+  /**
    * Read the property.
    *
    * @returns {Promise<any>} The current value of the property.
+   * @throws {Error} Throws InternalError for invalid value or missing handler.
    */
   async read() {
     if (this.readHandler) {
-      return this.readHandler();
+      const value = await this.readHandler();
+      // Validate the read value against the data schema
+      if (!this.valueSchema.validate(value)) {
+        console.error(`Read invalid value for property ${this.name}`);
+        throw new Error('InternalError');
+      }
+      return value;
     } else {
       console.error(`No read handler set for property ${this.name}`);
       throw new Error('InternalError');
@@ -248,8 +276,8 @@ class PropertyAffordance extends InteractionAffordance {
    * @returns {Promise<void>} A Promise.
    */
   async write(value) {
-    // TODO: Validate value against data schema
     if (this.writeHandler) {
+      this.validateWrite(value);
       return this.writeHandler(value);
     } else {
       console.error(`No write handler set for property ${this.name}`);

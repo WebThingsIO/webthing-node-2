@@ -193,11 +193,15 @@ describe('Thing', () => {
         title: 'Writable Thing',
         properties: {
           on: { type: 'boolean' },
+          level: { type: 'number' },
           locked: { type: 'boolean', readOnly: true },
         },
       });
       let written = false;
       thing.setPropertyWriteHandler('on', async () => {
+        written = true;
+      });
+      thing.setPropertyWriteHandler('level', async () => {
         written = true;
       });
 
@@ -208,6 +212,10 @@ describe('Thing', () => {
       await assert.rejects(
         () => thing.writeMultipleProperties({ on: true, missing: true }),
         /NotFoundError/,
+      );
+      await assert.rejects(
+        () => thing.writeMultipleProperties({ on: false, level: 'invalid' }),
+        /BadRequest/,
       );
       await assert.rejects(
         () => thing.writeMultipleProperties(null),

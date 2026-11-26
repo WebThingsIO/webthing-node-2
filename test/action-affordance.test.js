@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import ActionAffordance from '../src/action-affordance.js';
+import DataSchema from '../src/data-schema.js';
 import ValidationError from '../src/validation-error.js';
 
 describe('ActionAffordance', () => {
@@ -20,6 +21,10 @@ describe('ActionAffordance', () => {
       assert.equal(action.title, 'Toggle');
       assert.deepEqual(action.input, { type: 'boolean' });
       assert.deepEqual(action.output, { type: 'boolean' });
+      assert.ok(action.inputSchema instanceof DataSchema);
+      assert.ok(action.outputSchema instanceof DataSchema);
+      assert.equal(action.inputSchema.validate(true), true);
+      assert.equal(action.outputSchema.validate(false), true);
       assert.equal(action.safe, true);
       assert.equal(action.idempotent, true);
       assert.equal(action.synchronous, false);
@@ -31,6 +36,8 @@ describe('ActionAffordance', () => {
       assert.equal(action.safe, false);
       assert.equal(action.idempotent, false);
       assert.equal(action.synchronous, undefined);
+      assert.ok(action.inputSchema instanceof DataSchema);
+      assert.ok(action.outputSchema instanceof DataSchema);
     });
 
     it('should reject invalid member types', () => {
@@ -95,6 +102,42 @@ describe('ActionAffordance', () => {
 
       const result = await action.invoke('red');
       assert.deepEqual(result, { value: 'red' });
+    });
+
+    it('should validate action input and output against their schemas', async () => {
+      const action = new ActionAffordance('setLevel', {
+        input: {
+          type: 'object',
+          properties: { level: { type: 'integer', minimum: 0 } },
+          required: ['level'],
+        },
+        output: { type: 'string', enum: ['ok', 'failed'] },
+      });
+      let invoked = false;
+      action.setInvokeHandler(async () => {
+        invoked = true;
+        return 'unexpected';
+      });
+
+      await assert.rejects(() => action.invoke({}), /BadRequest/);
+      assert.equal(invoked, false);
+      await assert.rejects(() => action.invoke({ level: 1 }), /InternalError/);
+    });
+
+    it('should fail asynchronous actions when their output violates the schema', async () => {
+      const action = new ActionAffordance('getLevel', {
+        output: { type: 'integer' },
+      });
+      action.setInvokeHandler(async () => 'not an integer');
+
+      const { href } = action.invokeAsync(undefined);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      assert.equal(action.query(href.split('/').at(-1)).status, 'failed');
+      assert.equal(
+        action.query(href.split('/').at(-1)).error.detail,
+        'InternalError',
+      );
     });
 
     it('should reject when no invoke handler has been registered', async () => {
