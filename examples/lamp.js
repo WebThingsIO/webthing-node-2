@@ -13,6 +13,7 @@ const partialTD = {
       type: 'boolean',
       title: 'On/Off',
       description: 'Whether the lamp is turned on',
+      observable: true,
     },
     level: {
       type: 'number',
@@ -21,13 +22,13 @@ const partialTD = {
       unit: 'percent',
       minimum: 0,
       maximum: 100,
+      observable: true,
     },
   },
   actions: {
     fade: {
       title: 'Fade',
       description: 'Fade the lamp to a given level',
-      synchronous: false,
       input: {
         type: 'object',
         properties: {

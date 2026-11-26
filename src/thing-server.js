@@ -34,7 +34,7 @@ class ThingServer {
     this.app.get(
       '/properties/:name',
       /**
-       * Read Property
+       * Read or Observe Property
        *
        * @param {Request} request
        * @param {Response} response
@@ -44,6 +44,53 @@ class ThingServer {
         const name = Array.isArray(request.params.name)
           ? request.params.name[0]
           : request.params.name;
+
+        const requestedEventStream =
+          request.accepts('text/event-stream') &&
+          !request.accepts('application/json');
+
+        if (requestedEventStream) {
+          const property = this.thing.properties.get(name);
+          if (!property) {
+            response.status(404).send();
+            return;
+          } else if (
+            property.writeOnly === true ||
+            property.observable !== true
+          ) {
+            response.status(406).send();
+            return;
+          }
+
+          response.status(200);
+          response.set({
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          });
+
+          /**
+           * @param {string} changedName The name of the Property that changed.
+           * @param {any} value The new value of the changed Property.
+           * @param {string} eventId Event ID in date-time format.
+           */
+          const onPropertyChanged = (changedName, value, eventId) => {
+            if (changedName !== name || response.writableEnded) {
+              return;
+            }
+            response.write(
+              `event: ${name}\ndata: ${JSON.stringify(value)}\nid: ${eventId}\n\n`,
+            );
+          };
+
+          this.thing.on('propertyChanged', onPropertyChanged);
+          response.on('close', () => {
+            this.thing.off('propertyChanged', onPropertyChanged);
+          });
+          response.flushHeaders();
+          return;
+        }
+
         let value;
         try {
           value = await this.thing.readProperty(name);

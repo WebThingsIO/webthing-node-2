@@ -28,6 +28,7 @@ describe('PropertyAffordance', () => {
 
       assert.equal(property.readOnly, false);
       assert.equal(property.writeOnly, false);
+      assert.equal(property.observable, false);
       assert.equal(property.type, 'string');
       assert.ok(property.valueSchema instanceof DataSchema);
     });
@@ -60,6 +61,22 @@ describe('PropertyAffordance', () => {
           assert.equal(
             error.validationErrors[0].description,
             'type is set but is not a string',
+          );
+          return true;
+        },
+      );
+
+      assert.throws(
+        () => new PropertyAffordance('badObservable', { observable: 'yes' }),
+        (error) => {
+          assert.ok(error instanceof ValidationError);
+          assert.equal(
+            error.validationErrors[0].field,
+            'properties.badObservable.observable',
+          );
+          assert.equal(
+            error.validationErrors[0].description,
+            'observable member is not a boolean',
           );
           return true;
         },
@@ -101,6 +118,30 @@ describe('PropertyAffordance', () => {
           {
             href: 'properties/brightness',
             op: ['readproperty', 'writeproperty'],
+          },
+        ],
+      });
+    });
+
+    it('should generate observe forms only for observable properties', () => {
+      const property = new PropertyAffordance('brightness', {
+        type: 'number',
+        observable: true,
+      });
+
+      assert.deepEqual(property.getMetadata(), {
+        type: 'number',
+        observable: true,
+        forms: [
+          {
+            href: 'properties/brightness',
+            op: ['readproperty', 'writeproperty'],
+          },
+          {
+            href: 'properties/brightness',
+            op: ['observeproperty', 'unobserveproperty'],
+            contentType: 'application/json',
+            subprotocol: 'sse',
           },
         ],
       });
